@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Temperaturas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* Ocultar barra de scroll pero permitir scroll */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased p-2 md:p-4 min-h-screen">
+
+  <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="bg-blue-600 text-white px-6 py-4 flex items-center gap-3">
+      <i class="ph ph-thermometer text-2xl"></i>
+      <div>
+        <h2 class="text-lg font-bold">Control de Temperaturas</h2>
+        <p class="text-xs text-blue-100" id="txt-usuario-activo">Cargando sesión...</p>
+      </div>
+    </div>
+
+    <div class="p-6">
+      <form id="form-lectura-camara" class="space-y-5">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Cámara a controlar</label>
+            <select id="camara-select" required class="w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-50 py-2 px-3 border">
+              <option value="">Cargando cámaras...</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Turno (Hora)</label>
+            <select id="turno-select" required class="w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-50 py-2 px-3 border">
+              <option value="">Seleccione turno...</option>
+              <option value="07:30">07:30 hrs</option>
+              <option value="09:30">09:30 hrs</option>
+              <option value="11:30">11:30 hrs</option>
+              <option value="13:30">13:30 hrs</option>
+              <option value="15:30">15:30 hrs</option>
+              <option value="17:30">17:30 hrs</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="banner-limites" class="hidden bg-blue-50 text-blue-800 text-sm p-3 rounded-md border border-blue-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
+           <span id="txt-limites-temp"></span>
+           <span id="txt-limites-hr" class="font-medium"></span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Temperatura (°C)</label>
+            <input type="number" step="0.1" id="val-temp" required placeholder="Ej. -18.5" class="w-full text-lg font-bold text-gray-900 rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 py-2 px-3 border">
+          </div>
+          <div id="box-humedad" class="hidden">
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Humedad (%)</label>
+            <input type="number" step="0.1" id="val-humedad" placeholder="Ej. 85.0" class="w-full text-lg font-bold text-gray-900 rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 py-2 px-3 border">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Observaciones / Desviaciones</label>
+          <textarea id="val-incidencia" rows="2" placeholder="Opcional. Llenar si hay novedades..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 py-2 px-3 border"></textarea>
+        </div>
+
+        <button type="submit" id="btn-guardar-lectura" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-md hover:bg-blue-700 transition flex justify-center items-center gap-2 shadow-md">
+          <i class="ph ph-floppy-disk text-xl"></i> Registrar Lectura
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
