@@ -679,3 +679,76 @@ function restaurarBotonReporte(btn, htmlOriginal) {
     btn.disabled = false;
     btn.innerHTML = htmlOriginal;
 }
+// ==========================================
+// 8. LÓGICA DE EDICIÓN (MODAL)
+// ==========================================
+
+function abrirModalEdicion(id, fecha, turno, temp, hum, incidencia) {
+    const camaraId = document.getElementById('rev-camara').value;
+    const camaraSel = camarasDisponibles.find(c => c.id.toString() === camaraId.toString());
+    const usaHumedad = camaraSel && camaraSel.minHr !== null && camaraSel.maxHr !== null && camaraSel.maxHr > 0;
+
+    // Llenar datos en el Modal
+    document.getElementById('edit-id').value = id;
+    document.getElementById('edit-info-contexto').innerHTML = `<strong>${camaraSel.nombre}</strong><br>Fecha: ${fecha} | Turno: ${turno} hrs`;
+    document.getElementById('edit-temp').value = temp;
+    document.getElementById('edit-incidencia').value = incidencia;
+
+    const boxHum = document.getElementById('edit-box-humedad');
+    const inputHum = document.getElementById('edit-humedad');
+    
+    if (usaHumedad) {
+        boxHum.classList.remove('hidden');
+        inputHum.value = hum || '';
+        inputHum.setAttribute('required', 'true');
+    } else {
+        boxHum.classList.add('hidden');
+        inputHum.value = '';
+        inputHum.removeAttribute('required');
+    }
+
+    // Mostrar Modal
+    document.getElementById('modal-edicion').classList.remove('hidden');
+}
+
+function cerrarModalEdicion() {
+    document.getElementById('modal-edicion').classList.add('hidden');
+    document.getElementById('form-editar-lectura').reset();
+}
+
+// Enviar Edición al Backend
+document.getElementById('form-editar-lectura').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const btn = document.getElementById('btn-guardar-edicion');
+    const originalHTML = btn.innerHTML;
+    
+    const payload = {
+        action: 'actualizarLecturaCamara',
+        id: document.getElementById('edit-id').value,
+        temperatura: document.getElementById('edit-temp').value,
+        humedad: document.getElementById('edit-humedad').value,
+        incidencia: document.getElementById('edit-incidencia').value,
+        userName: currentUser.nombre
+    };
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
+
+    try {
+        const response = await apiFetch(payload);
+        if (response.status === 'success') {
+            cerrarModalEdicion();
+            // Disparar clic en el botón generar reporte para recargar la tabla automáticamente
+            document.getElementById('btn-generar-reporte').click(); 
+        } else {
+            alert('Error al editar: ' + response.message);
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+        }
+    } catch (error) {
+        alert('Fallo de conexión.');
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
+});
