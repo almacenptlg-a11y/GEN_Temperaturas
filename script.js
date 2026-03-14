@@ -1,7 +1,7 @@
 // script.js
 
 // URL de tu Backend (GAS) - Reemplaza con la URL de despliegue de tu script
-const API_URL = "URL_DE_TU_WEB_APP_AQUI"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbw9DjZJw8DelWMQQKvUxGhjHs1Ka0sWZPyHBu4lYwMg-2L-avGrzWNEoZOMXT8x9g3c/exec"; 
 let currentUser = null;
 let camarasDisponibles = [];
 
