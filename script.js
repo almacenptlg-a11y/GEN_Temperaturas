@@ -1,29 +1,36 @@
-// script.js
-
-// URL de tu Backend (GAS) - Reemplaza con la URL de despliegue de tu script
 const API_URL = "https://script.google.com/macros/s/AKfycbw9DjZJw8DelWMQQKvUxGhjHs1Ka0sWZPyHBu4lYwMg-2L-avGrzWNEoZOMXT8x9g3c/exec"; 
 let currentUser = null;
 let camarasDisponibles = [];
 
-// 1. Inicialización al cargar el Iframe
-document.addEventListener("DOMContentLoaded", () => {
-  inicializarSesion();
+// 1. ESCUCHAR EL MENSAJE DEL SISTEMA PADRE (GENAPPS)
+window.addEventListener("message", (event) => {
+  // Verificamos que el mensaje sea el de sincronización de sesión
+  if (event.data && event.data.type === 'SESSION_SYNC') {
+    console.log("Sesión recibida en Iframe:", event.data.user);
+    currentUser = event.data.user;
+    
+    // Desbloquear UI
+    document.getElementById('txt-usuario-activo').innerHTML = `<i class="ph ph-user-check"></i> Operador: ${currentUser.nombre} | ${currentUser.area}`;
+    
+    const btnGuardar = document.getElementById('btn-guardar-lectura');
+    btnGuardar.disabled = false;
+    btnGuardar.classList.remove('bg-gray-400', 'cursor-not-allowed');
+    btnGuardar.classList.add('bg-blue-600', 'hover:bg-blue-700');
+    btnGuardar.innerHTML = '<i class="ph ph-floppy-disk text-2xl"></i> Registrar Lectura';
+
+    // Cargar las cámaras ahora que sabemos quién es
+    cargarCamaras();
+  }
 });
 
-function inicializarSesion() {
-  // Intentar leer la sesión desde localStorage (funciona si están en el mismo dominio base)
-  const sessionStr = localStorage.getItem('userSession');
-  
-  if (sessionStr) {
-    currentUser = JSON.parse(sessionStr);
-    document.getElementById('txt-usuario-activo').textContent = `Operador: ${currentUser.nombre} | ${currentUser.area}`;
-    cargarCamaras();
-  } else {
-    document.getElementById('txt-usuario-activo').textContent = "⚠️ Sesión no encontrada. Inicie sesión en GENAPPS.";
-    document.getElementById('btn-guardar-lectura').disabled = true;
-    document.getElementById('btn-guardar-lectura').classList.replace('bg-blue-600', 'bg-gray-400');
-  }
-}
+// En caso de que alguien abra el módulo directamente sin pasar por GENAPPS
+document.addEventListener("DOMContentLoaded", () => {
+  setTimeout(() => {
+    if (!currentUser) {
+      document.getElementById('txt-usuario-activo').innerHTML = '<i class="ph ph-warning text-red-500"></i> Error: Sesión no sincronizada';
+    }
+  }, 3000); // Da 3 segundos para que llegue el mensaje del padre
+});
 
 // Función genérica para interactuar con tu Backend
 async function apiFetch(payload) {
