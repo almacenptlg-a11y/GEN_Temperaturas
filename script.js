@@ -666,8 +666,22 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
             tbody.innerHTML = bodyHTML;
 
         } else {
-            mensaje.innerHTML = `<i class="ph ph-warning text-4xl mb-2 text-red-500"></i><br><span class="text-red-500 font-bold">Error: ${response.message}</span>`;
-        }
+                        // Celdas Vacías: Ahora son botones para Crear si eres Jefe
+                        const fechaCelda = `${d.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}/${anio}`;
+                        
+                        // Si puede editar, al pasar el mouse se pone azul simulando un botón "+"
+                        const accionVaciaClick = puedeEditar ? `onclick="abrirModalEdicion('', '${fechaCelda}', '${turno}', '', '', '')"` : '';
+                        const cursorVaciaClass = puedeEditar ? 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:text-blue-600 dark:hover:text-blue-400 hover:font-bold transition-all title="Clic para completar turno"' : 'cursor-not-allowed';
+                        
+                        const claseVaciaFinal = `text-center border-r border-gray-200 dark:border-gray-700 ${cursorVaciaClass} ${esInactivo ? 'text-gray-300 dark:text-gray-600' : 'text-gray-300 dark:text-gray-500'}`;
+                        
+                        if (usaHumedad) {
+                            bodyHTML += `<td ${accionVaciaClick} class="px-2 py-2 ${claseVaciaFinal}">-</td>`;
+                            bodyHTML += `<td ${accionVaciaClick} class="px-2 py-2 ${claseVaciaFinal}">-</td>`;
+                        } else {
+                            bodyHTML += `<td ${accionVaciaClick} class="px-4 py-2 ${claseVaciaFinal}">-</td>`;
+                        }
+                    }
     } catch (error) {
         mensaje.innerHTML = `<i class="ph ph-wifi-x text-4xl mb-2 text-red-500"></i><br><span class="text-red-500 font-bold">Error de red. Intente nuevamente.</span>`;
     } finally {
