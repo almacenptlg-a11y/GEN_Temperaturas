@@ -4,8 +4,10 @@
 // CONFIGURACIÓN Y ESTADO GLOBAL
 // ==========================================
 const API_URL = "https://script.google.com/macros/s/AKfycbw9DjZJw8DelWMQQKvUxGhjHs1Ka0sWZPyHBu4lYwMg-2L-avGrzWNEoZOMXT8x9g3c/exec"; 
+const TODOS_LOS_TURNOS = ['07:30', '09:30', '11:30', '13:30', '15:30', '17:30'];
 let currentUser = null;
 let camarasDisponibles = [];
+
 
 // ==========================================
 // 1. GESTIÓN DE SESIÓN (MICRO-FRONTEND)
@@ -50,6 +52,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// AL INICIAR EL MÓDULO: Configurar la fecha de hoy por defecto
+function configurarFechaInicial() {
+    const hoy = new Date();
+    // Ajuste simple para GMT-5 (Hora Perú) sin depender de librerías
+    hoy.setHours(hoy.getHours() - 5);
+    const fechaISO = hoy.toISOString().split('T')[0]; // "YYYY-MM-DD"
+    document.getElementById('val-fecha').value = fechaISO;
+}
+
 // Función central de desbloqueo de UI
 function iniciarModuloConUsuario(usuario) {
     currentUser = usuario;
@@ -60,6 +71,130 @@ function iniciarModuloConUsuario(usuario) {
         nombreDisplay.innerHTML = `<i class="ph ph-user-check"></i> Operador: ${usuario.nombre} | ${usuario.area}`;
     }
 
+// UTILIDAD: Convertir YYYY-MM-DD a DD/MM/YYYY para el Backend
+function formatearFecha(fechaInput) {
+    if (!fechaInput || fechaInput.length !== 10) return null;
+    const [y, m, d] = fechaInput.split('-');
+    return `${d}/${m}/${y}`;
+}
+
+// NÚCLEO: Función que consulta la disponibilidad al backend
+async function verificarTurnosDisponibles() {
+    const idCamara = document.getElementById('camara-select').value;
+    const inputFecha = document.getElementById('val-fecha').value;
+    const selectTurno = document.getElementById('turno-select');
+
+    if (!idCamara || inputFecha.length !== 10) {
+        selectTurno.innerHTML = '<option value="">Seleccione cámara y fecha primero...</option>';
+        selectTurno.disabled = true;
+        selectTurno.classList.add('bg-gray-50');
+        return;
+    }
+
+    const fechaFormat = formatearFecha(inputFecha);
+    
+    // Estado de carga visual en el select de turnos
+    selectTurno.disabled = true;
+    selectTurno.classList.add('bg-gray-50');
+    selectTurno.innerHTML = '<option value="">Consultando disponibilidad...</option>';
+
+    try {
+        const response = await apiFetch({
+            action: 'getTurnosRegistrados',
+            idCamara: idCamara,
+            fecha: fechaFormat
+        });
+
+        if (response.status === 'success') {
+            const registrados = response.data;
+            let disponibles = 0;
+            
+            selectTurno.innerHTML = '<option value="">Seleccione turno disponible...</option>';
+            
+            TODOS_LOS_TURNOS.forEach(turno => {
+                if (registrados.includes(turno)) {
+                    // Turno bloqueado (Ya existe en BD)
+                    selectTurno.innerHTML += `<option value="${turno}" disabled class="text-gray-400 bg-gray-100">❌ ${turno} hrs (Ya registrado)</option>`;
+                } else {
+                    // Turno libre
+                    selectTurno.innerHTML += `<option value="${turno}" class="font-bold text-green-700">✅ ${turno} hrs</option>`;
+                    disponibles++;
+                }
+            });
+
+            if (disponibles === 0) {
+                selectTurno.innerHTML = '<option value="">⚠️ Todos los turnos completados hoy</option>';
+            } else {
+                selectTurno.disabled = false;
+                selectTurno.classList.remove('bg-gray-50');
+            }
+        }
+    } catch (e) {
+        selectTurno.innerHTML = '<option value="">Error de conexión. Reintente.</option>';
+    }
+}
+
+// === REACTIVIDAD DE EVENTOS ===
+
+// 1. Cuando cambia la cámara elegida, se revisan los límites (tu código actual) Y los turnos
+document.getElementById('camara-select').addEventListener('change', (e) => {
+    // ... (Mantén tu código de mostrar límites de Temp y Humedad aquí) ...
+    
+    // Y al final llamas a la verificación de turnos:
+    verificarTurnosDisponibles();
+});
+
+// 2. REGLA ESTRICTA DE FECHA: Blur y Keydown (Enter), validando longitud
+const inputFecha = document.getElementById('val-fecha');
+
+inputFecha.addEventListener('blur', (e) => {
+    if (e.target.value.length === 10) {
+        verificarTurnosDisponibles();
+    }
+});
+
+inputFecha.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.value.length === 10) {
+        e.preventDefault();
+        verificarTurnosDisponibles();
+    }
+});
+
+// 3. ACTUALIZAR EL PAYLOAD DEL SUBMIT PARA ENVIAR LA FECHA MANUAL
+// En tu document.getElementById('form-lectura-camara').addEventListener('submit'...
+    const payload = {
+        action: 'registrarLecturaCamara',
+        idCamara: document.getElementById('camara-select').value,
+        fecha: formatearFecha(document.getElementById('val-fecha').value), // NUEVO
+        turno: document.getElementById('turno-select').value,
+        temperatura: document.getElementById('val-temp').value,
+        humedad: document.getElementById('val-humedad').value,
+        incidencia: document.getElementById('val-incidencia').value,
+        userName: currentUser.nombre 
+    };
+    
+    // Tras el success del fetch de guardado, recargamos la disponibilidad:
+    // ...
+    if (response.status === 'success') {
+       // ... tu feedback de éxito ...
+       setTimeout(() => {
+           // Reseteamos form, PERO mantenemos la cámara y fecha para seguir rápido
+           const camaraActual = document.getElementById('camara-select').value;
+           const fechaActual = document.getElementById('val-fecha').value;
+           
+           document.getElementById('form-lectura-camara').reset();
+           
+           document.getElementById('camara-select').value = camaraActual;
+           document.getElementById('val-fecha').value = fechaActual;
+           
+           // Ocultar humedad si aplica (reiniciar UI)
+           // ...
+           
+           // Volver a verificar turnos para ocultar el que acabamos de registrar
+           verificarTurnosDisponibles();
+       }, 1500);
+    }
+    
     // Desbloquear botón de guardado
     const btnGuardar = document.getElementById('btn-guardar-lectura');
     if (btnGuardar) {
