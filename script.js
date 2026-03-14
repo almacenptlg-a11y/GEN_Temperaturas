@@ -433,3 +433,168 @@ function restaurarBotonGuardar(btn, htmlOriginal) {
     btn.classList.add('bg-blue-600');
     btn.innerHTML = htmlOriginal;
 }
+
+// ==========================================
+// 6. NAVEGACIÓN DE PESTAÑAS (TABS)
+// ==========================================
+
+const tabRegistro = document.getElementById('tab-registro');
+const tabRevision = document.getElementById('tab-revision');
+const vistaRegistro = document.getElementById('vista-registro');
+const vistaRevision = document.getElementById('vista-revision');
+
+tabRegistro.addEventListener('click', () => {
+    // Mostrar Registro, Ocultar Revisión
+    vistaRegistro.classList.remove('hidden');
+    vistaRegistro.classList.add('block');
+    vistaRevision.classList.remove('block');
+    vistaRevision.classList.add('hidden');
+
+    // Cambiar estilos (Pestaña Activa)
+    tabRegistro.classList.replace('border-transparent', 'border-blue-600');
+    tabRegistro.classList.replace('text-gray-500', 'text-blue-600');
+    tabRegistro.classList.replace('dark:text-gray-400', 'dark:text-blue-400');
+
+    // Cambiar estilos (Pestaña Inactiva)
+    tabRevision.classList.replace('border-blue-600', 'border-transparent');
+    tabRevision.classList.replace('text-blue-600', 'text-gray-500');
+    tabRevision.classList.replace('dark:text-blue-400', 'dark:text-gray-400');
+});
+
+tabRevision.addEventListener('click', () => {
+    // Mostrar Revisión, Ocultar Registro
+    vistaRevision.classList.remove('hidden');
+    vistaRevision.classList.add('block');
+    vistaRegistro.classList.remove('block');
+    vistaRegistro.classList.add('hidden');
+
+    // Cambiar estilos (Pestaña Activa)
+    tabRevision.classList.replace('border-transparent', 'border-blue-600');
+    tabRevision.classList.replace('text-gray-500', 'text-blue-600');
+    tabRevision.classList.replace('dark:text-gray-400', 'dark:text-blue-400');
+
+    // Cambiar estilos (Pestaña Inactiva)
+    tabRegistro.classList.replace('border-blue-600', 'border-transparent');
+    tabRegistro.classList.replace('text-blue-600', 'text-gray-500');
+    tabRegistro.classList.replace('dark:text-blue-400', 'dark:text-gray-400');
+
+    // Cargar los combos del Dashboard la primera vez que se entra
+    const revCamara = document.getElementById('rev-camara');
+    if (revCamara.options.length <= 1 && camarasDisponibles.length > 0) {
+        revCamara.innerHTML = '<option value="">Seleccione cámara...</option>';
+        camarasDisponibles.forEach(c => {
+            revCamara.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+        });
+        
+        // Seleccionar el mes y año actual automáticamente
+        const hoy = new Date();
+        document.getElementById('rev-mes').value = hoy.getMonth() + 1;
+        document.getElementById('rev-anio').value = hoy.getFullYear();
+    }
+});
+
+
+// ==========================================
+// 7. DASHBOARD MATRIZ (REVISIÓN JEFATURA)
+// ==========================================
+
+document.getElementById('btn-generar-reporte').addEventListener('click', async () => {
+    const idCamara = document.getElementById('rev-camara').value;
+    const mes = document.getElementById('rev-mes').value;
+    const anio = document.getElementById('rev-anio').value;
+    
+    if (!idCamara) return alert("Por favor seleccione una cámara para generar el reporte.");
+
+    const btn = document.getElementById('btn-generar-reporte');
+    const originalBtnHTML = btn.innerHTML;
+    
+    // UI Cargando
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Extrayendo datos...';
+    
+    const container = document.getElementById('tabla-container');
+    const mensaje = document.getElementById('tabla-mensaje');
+    const thead = document.getElementById('tabla-head');
+    const tbody = document.getElementById('tabla-body');
+
+    container.classList.add('hidden');
+    mensaje.classList.remove('hidden');
+    mensaje.innerHTML = '<i class="ph ph-spinner animate-spin text-4xl mb-3 text-blue-500"></i><br><span class="font-bold">Procesando Matriz HACCP...</span>';
+
+    try {
+        const response = await apiFetch({
+            action: 'getRegistrosRevision',
+            idCamara: idCamara,
+            mes: mes,
+            anio: anio
+        });
+
+        if (response.status === 'success') {
+            const data = response.data;
+            
+            if (data.length === 0) {
+                mensaje.innerHTML = '<i class="ph ph-folder-open text-5xl mb-3 text-gray-400"></i><br><span class="font-bold text-lg">Sin registros</span><br>No se encontraron datos para este mes.';
+                restaurarBotonReporte(btn, originalBtnHTML);
+                return;
+            }
+
+            // ARMADO DE LA MATRIZ (Días x Turnos)
+            mensaje.classList.add('hidden');
+            container.classList.remove('hidden');
+
+            const diasEnMes = new Date(anio, mes, 0).getDate();
+            
+            // 1. Dibujar Cabecera (Turnos)
+            let headHTML = '<tr><th class="px-4 py-3 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 w-16 text-center border-b border-gray-200 dark:border-gray-600">DÍA</th>';
+            TODOS_LOS_TURNOS.forEach(t => {
+                headHTML += `<th class="px-4 py-3 text-center border-l border-b border-gray-200 dark:border-gray-600">${t}</th>`;
+            });
+            headHTML += '</tr>';
+            thead.innerHTML = headHTML;
+
+            // 2. Dibujar Cuerpo (Días y Temperaturas)
+            let bodyHTML = '';
+            for (let d = 1; d <= diasEnMes; d++) {
+                bodyHTML += `<tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                              <td class="px-4 py-2 font-bold text-center border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">${d}</td>`;
+                
+                TODOS_LOS_TURNOS.forEach(turno => {
+                    // Buscar si hay un cruce exacto entre este Día y este Turno en la BD
+                    const reg = data.find(r => r.dia === d && r.turno === turno);
+                    
+                    if (reg) {
+                        // Estilo visual si hay desviación
+                        const isDesviacion = reg.estado === 'DESVIACION';
+                        const textColor = isDesviacion ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-800 dark:text-gray-200 font-semibold';
+                        const bgWarning = isDesviacion ? 'bg-red-50 dark:bg-red-900/10' : '';
+                        
+                        // Tooltip (Hover) para ver quien lo registró y la humedad
+                        const tooltip = `Registrado por: ${reg.usuario}\nHumedad: ${reg.humedad || 'N/A'}\nObs: ${reg.incidencia || 'Ninguna'}`;
+                        
+                        bodyHTML += `<td class="px-4 py-2 text-center border-l border-gray-200 dark:border-gray-700 cursor-help ${textColor} ${bgWarning}" title="${tooltip}">
+                                        ${reg.temp}°
+                                        ${isDesviacion ? '<span class="block text-[10px] text-red-500 font-normal">Ver Obs.</span>' : ''}
+                                     </td>`;
+                    } else {
+                        // Celda Vacía
+                        bodyHTML += `<td class="px-4 py-2 text-center border-l border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600">-</td>`;
+                    }
+                });
+                bodyHTML += '</tr>';
+            }
+            tbody.innerHTML = bodyHTML;
+
+        } else {
+            mensaje.innerHTML = `<i class="ph ph-warning text-4xl mb-2 text-red-500"></i><br><span class="text-red-500 font-bold">Error: ${response.message}</span>`;
+        }
+    } catch (error) {
+        mensaje.innerHTML = `<i class="ph ph-wifi-x text-4xl mb-2 text-red-500"></i><br><span class="text-red-500 font-bold">Error de red. Intente nuevamente.</span>`;
+    } finally {
+        restaurarBotonReporte(btn, originalBtnHTML);
+    }
+});
+
+function restaurarBotonReporte(btn, htmlOriginal) {
+    btn.disabled = false;
+    btn.innerHTML = htmlOriginal;
+}
