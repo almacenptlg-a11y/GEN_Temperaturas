@@ -579,10 +579,47 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
             // ARMADO DINÁMICO DEL CUERPO (Celdas)
             // =========================================================
             let bodyHTML = '';
+            
+            // Feriados fijos de Perú (DD/MM)
+            const FERIADOS_PERU = ['01/01', '01/05', '29/06', '28/07', '29/07', '30/08', '08/10', '01/11', '08/12', '09/12', '25/12'];
+            const diasAbrev = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
             for (let d = 1; d <= diasEnMes; d++) {
-                bodyHTML += `<tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                              <td class="px-4 py-2 font-bold text-center border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">${d}</td>`;
                 
+                // 1. Cálculos de Fecha (Día de la semana y Feriados)
+                const fechaFila = new Date(anio, mes - 1, d); // mes - 1 porque JS cuenta los meses de 0 a 11
+                const indiceDia = fechaFila.getDay(); // 0 = Domingo, 6 = Sábado
+                const abrev = diasAbrev[indiceDia];
+                
+                const diaMesStr = `${d.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}`;
+                const esFeriado = FERIADOS_PERU.includes(diaMesStr);
+                const esFinSemana = (indiceDia === 0 || indiceDia === 6);
+                
+                const esInactivo = esFinSemana || esFeriado; // Si es inactivo, lo sombreamos
+
+                // 2. Estilos Dinámicos para la Fila (Tachado suave / Sombreado)
+                let claseFila = "transition-colors ";
+                let claseCeldaCabecera = "px-4 py-2 text-center border-r border-gray-200 dark:border-gray-700 ";
+
+                if (esInactivo) {
+                    // Fila sombreada (Sábados, Domingos y Feriados)
+                    claseFila += "bg-gray-100 dark:bg-gray-800/80 opacity-90"; 
+                    claseCeldaCabecera += "bg-gray-200 dark:bg-gray-700/80";
+                } else {
+                    // Fila normal (Días hábiles)
+                    claseFila += "hover:bg-gray-50 dark:hover:bg-gray-700/50";
+                    claseCeldaCabecera += "bg-gray-50 dark:bg-gray-800/50";
+                }
+
+                // 3. Dibujar la celda principal del DÍA
+                bodyHTML += `<tr class="${claseFila}">
+                              <td class="${claseCeldaCabecera}">
+                                  <span class="block text-[10px] uppercase tracking-wider ${esInactivo ? 'text-gray-400' : 'text-gray-500'} font-bold mb-0.5">${abrev}</span>
+                                  <span class="${esInactivo ? 'text-gray-500 dark:text-gray-400 font-bold' : 'text-gray-900 dark:text-white font-bold text-base'}">${d}</span>
+                                  ${esFeriado ? `<span class="block text-[9px] text-red-500 font-bold mt-0.5">Feriado</span>` : ''}
+                              </td>`;
+                
+                // 4. Dibujar las celdas de Temperaturas
                 TODOS_LOS_TURNOS.forEach(turno => {
                     const reg = data.find(r => r.dia === d && r.turno === turno);
                     
@@ -594,7 +631,6 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
                         const obsSpan = isDesviacion ? '<span class="block text-[10px] text-red-500 font-normal">Ver Obs.</span>' : '';
 
                         if (usaHumedad) {
-                            // Imprimir 2 celdas: Temperatura y Humedad
                             bodyHTML += `<td class="px-2 py-2 text-center border-r border-gray-200 dark:border-gray-700 cursor-help ${textColor} ${bgWarning}" title="${tooltip}">
                                             ${reg.temp}° ${obsSpan}
                                          </td>`;
@@ -602,18 +638,19 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
                                             ${reg.humedad ? reg.humedad + '%' : '-'}
                                          </td>`;
                         } else {
-                            // Imprimir 1 celda normal (Solo Temperatura)
                             bodyHTML += `<td class="px-4 py-2 text-center border-r border-gray-200 dark:border-gray-700 cursor-help ${textColor} ${bgWarning}" title="${tooltip}">
                                             ${reg.temp}° ${obsSpan}
                                          </td>`;
                         }
                     } else {
-                        // Celdas vacías
+                        // Celdas Vacías (Tachado suave visual usando texto atenuado)
+                        const celdaVaciaClass = `text-center border-r border-gray-200 dark:border-gray-700 ${esInactivo ? 'text-gray-300 dark:text-gray-600' : 'text-gray-300 dark:text-gray-500'}`;
+                        
                         if (usaHumedad) {
-                            bodyHTML += `<td class="px-2 py-2 text-center border-r border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600">-</td>`;
-                            bodyHTML += `<td class="px-2 py-2 text-center border-r border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600">-</td>`;
+                            bodyHTML += `<td class="px-2 py-2 ${celdaVaciaClass}">-</td>`;
+                            bodyHTML += `<td class="px-2 py-2 ${celdaVaciaClass}">-</td>`;
                         } else {
-                            bodyHTML += `<td class="px-4 py-2 text-center border-r border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600">-</td>`;
+                            bodyHTML += `<td class="px-4 py-2 ${celdaVaciaClass}">-</td>`;
                         }
                     }
                 });
