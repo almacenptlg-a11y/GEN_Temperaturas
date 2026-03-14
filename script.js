@@ -505,6 +505,10 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
     
     if (!idCamara) return alert("Por favor seleccione una cámara para generar el reporte.");
 
+    // 1. EVALUAR SI LA CÁMARA USA HUMEDAD
+    const camaraSel = camarasDisponibles.find(c => c.id.toString() === idCamara.toString());
+    const usaHumedad = camaraSel && camaraSel.minHr !== null && camaraSel.maxHr !== null && camaraSel.maxHr > 0;
+
     const btn = document.getElementById('btn-generar-reporte');
     const originalBtnHTML = btn.innerHTML;
     
@@ -538,46 +542,79 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
                 return;
             }
 
-            // ARMADO DE LA MATRIZ (Días x Turnos)
             mensaje.classList.add('hidden');
             container.classList.remove('hidden');
 
             const diasEnMes = new Date(anio, mes, 0).getDate();
             
-            // 1. Dibujar Cabecera (Turnos)
-            let headHTML = '<tr><th class="px-4 py-3 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 w-16 text-center border-b border-gray-200 dark:border-gray-600">DÍA</th>';
-            TODOS_LOS_TURNOS.forEach(t => {
-                headHTML += `<th class="px-4 py-3 text-center border-l border-b border-gray-200 dark:border-gray-600">${t}</th>`;
-            });
-            headHTML += '</tr>';
+            // =========================================================
+            // ARMADO DINÁMICO DE LA CABECERA (Simple vs Doble)
+            // =========================================================
+            let headHTML = '';
+            
+            if (usaHumedad) {
+                // Cabecera de 2 niveles (Turno -> °C | %HR)
+                headHTML += '<tr><th rowspan="2" class="px-4 py-3 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 w-16 text-center border-b border-r border-gray-200 dark:border-gray-600 align-middle">DÍA</th>';
+                TODOS_LOS_TURNOS.forEach(t => {
+                    headHTML += `<th colspan="2" class="px-4 py-2 text-center border-b border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700">${t}</th>`;
+                });
+                headHTML += '</tr><tr>';
+                TODOS_LOS_TURNOS.forEach(t => {
+                    headHTML += `<th class="px-2 py-1 text-center text-[11px] text-gray-500 dark:text-gray-400 border-b border-r border-gray-200 dark:border-gray-600">°C</th>`;
+                    headHTML += `<th class="px-2 py-1 text-center text-[11px] text-blue-600 dark:text-blue-400 border-b border-r border-gray-200 dark:border-gray-600">%HR</th>`;
+                });
+                headHTML += '</tr>';
+            } else {
+                // Cabecera de 1 nivel (Solo Temperaturas)
+                headHTML += '<tr><th class="px-4 py-3 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 w-16 text-center border-b border-r border-gray-200 dark:border-gray-600">DÍA</th>';
+                TODOS_LOS_TURNOS.forEach(t => {
+                    headHTML += `<th class="px-4 py-3 text-center border-b border-r border-gray-200 dark:border-gray-600">${t}</th>`;
+                });
+                headHTML += '</tr>';
+            }
+            
             thead.innerHTML = headHTML;
 
-            // 2. Dibujar Cuerpo (Días y Temperaturas)
+            // =========================================================
+            // ARMADO DINÁMICO DEL CUERPO (Celdas)
+            // =========================================================
             let bodyHTML = '';
             for (let d = 1; d <= diasEnMes; d++) {
                 bodyHTML += `<tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                               <td class="px-4 py-2 font-bold text-center border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">${d}</td>`;
                 
                 TODOS_LOS_TURNOS.forEach(turno => {
-                    // Buscar si hay un cruce exacto entre este Día y este Turno en la BD
                     const reg = data.find(r => r.dia === d && r.turno === turno);
                     
                     if (reg) {
-                        // Estilo visual si hay desviación
                         const isDesviacion = reg.estado === 'DESVIACION';
                         const textColor = isDesviacion ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-800 dark:text-gray-200 font-semibold';
                         const bgWarning = isDesviacion ? 'bg-red-50 dark:bg-red-900/10' : '';
-                        
-                        // Tooltip (Hover) para ver quien lo registró y la humedad
-                        const tooltip = `Registrado por: ${reg.usuario}\nHumedad: ${reg.humedad || 'N/A'}\nObs: ${reg.incidencia || 'Ninguna'}`;
-                        
-                        bodyHTML += `<td class="px-4 py-2 text-center border-l border-gray-200 dark:border-gray-700 cursor-help ${textColor} ${bgWarning}" title="${tooltip}">
-                                        ${reg.temp}°
-                                        ${isDesviacion ? '<span class="block text-[10px] text-red-500 font-normal">Ver Obs.</span>' : ''}
-                                     </td>`;
+                        const tooltip = `Registrado por: ${reg.usuario}\nObs: ${reg.incidencia || 'Ninguna'}`;
+                        const obsSpan = isDesviacion ? '<span class="block text-[10px] text-red-500 font-normal">Ver Obs.</span>' : '';
+
+                        if (usaHumedad) {
+                            // Imprimir 2 celdas: Temperatura y Humedad
+                            bodyHTML += `<td class="px-2 py-2 text-center border-r border-gray-200 dark:border-gray-700 cursor-help ${textColor} ${bgWarning}" title="${tooltip}">
+                                            ${reg.temp}° ${obsSpan}
+                                         </td>`;
+                            bodyHTML += `<td class="px-2 py-2 text-center border-r border-gray-200 dark:border-gray-700 cursor-help text-blue-600 dark:text-blue-400 font-medium ${bgWarning}" title="${tooltip}">
+                                            ${reg.humedad ? reg.humedad + '%' : '-'}
+                                         </td>`;
+                        } else {
+                            // Imprimir 1 celda normal (Solo Temperatura)
+                            bodyHTML += `<td class="px-4 py-2 text-center border-r border-gray-200 dark:border-gray-700 cursor-help ${textColor} ${bgWarning}" title="${tooltip}">
+                                            ${reg.temp}° ${obsSpan}
+                                         </td>`;
+                        }
                     } else {
-                        // Celda Vacía
-                        bodyHTML += `<td class="px-4 py-2 text-center border-l border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600">-</td>`;
+                        // Celdas vacías
+                        if (usaHumedad) {
+                            bodyHTML += `<td class="px-2 py-2 text-center border-r border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600">-</td>`;
+                            bodyHTML += `<td class="px-2 py-2 text-center border-r border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600">-</td>`;
+                        } else {
+                            bodyHTML += `<td class="px-4 py-2 text-center border-r border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600">-</td>`;
+                        }
                     }
                 });
                 bodyHTML += '</tr>';
