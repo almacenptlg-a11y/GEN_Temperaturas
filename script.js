@@ -356,7 +356,7 @@ function llenarSelectCamaras(camaras) {
 }
 
 // ==========================================
-// 5. ENVÍO DEL FORMULARIO
+// 5. ENVÍO DEL FORMULARIO PRINCIPAL (REGISTRO)
 // ==========================================
 
 document.getElementById('form-lectura-camara').addEventListener('submit', async (e) => {
@@ -602,11 +602,9 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
                 let claseCeldaCabecera = "px-4 py-2 text-center border-r border-gray-200 dark:border-gray-700 ";
 
                 if (esInactivo) {
-                    // Fila sombreada (Sábados, Domingos y Feriados)
                     claseFila += "bg-gray-100 dark:bg-gray-800/80 opacity-90"; 
                     claseCeldaCabecera += "bg-gray-200 dark:bg-gray-700/80";
                 } else {
-                    // Fila normal (Días hábiles)
                     claseFila += "hover:bg-gray-50 dark:hover:bg-gray-700/50";
                     claseCeldaCabecera += "bg-gray-50 dark:bg-gray-800/50";
                 }
@@ -650,24 +648,11 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
                                          </td>`;
                         }
                     } else {
-                        // Celdas Vacías (Tachado suave visual usando texto atenuado)
-                        const celdaVaciaClass = `text-center border-r border-gray-200 dark:border-gray-700 ${esInactivo ? 'text-gray-300 dark:text-gray-600' : 'text-gray-300 dark:text-gray-500'}`;
-                        
-                        if (usaHumedad) {
-                            bodyHTML += `<td class="px-2 py-2 ${celdaVaciaClass}">-</td>`;
-                            bodyHTML += `<td class="px-2 py-2 ${celdaVaciaClass}">-</td>`;
-                        } else {
-                            bodyHTML += `<td class="px-4 py-2 ${celdaVaciaClass}">-</td>`;
-                        }
-                    }
-                });
-                bodyHTML += '</tr>';
-            }
-            tbody.innerHTML = bodyHTML;
-
-        } else {
                         // Celdas Vacías: Ahora son botones para Crear si eres Jefe
                         const fechaCelda = `${d.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}/${anio}`;
+                        
+                        // Validar si el usuario tiene permisos para editar/crear
+                        const puedeEditar = currentUser && (currentUser.rol.toUpperCase() === 'JEFE' || currentUser.rol.toUpperCase() === 'ADMINISTRADOR');
                         
                         // Si puede editar, al pasar el mouse se pone azul simulando un botón "+"
                         const accionVaciaClick = puedeEditar ? `onclick="abrirModalEdicion('', '${fechaCelda}', '${turno}', '', '', '')"` : '';
@@ -682,6 +667,14 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
                             bodyHTML += `<td ${accionVaciaClick} class="px-4 py-2 ${claseVaciaFinal}">-</td>`;
                         }
                     }
+                });
+                bodyHTML += '</tr>';
+            }
+            tbody.innerHTML = bodyHTML;
+
+        } else {
+            mensaje.innerHTML = `<i class="ph ph-warning text-4xl mb-2 text-red-500"></i><br><span class="text-red-500 font-bold">Error: ${response.message}</span>`;
+        }
     } catch (error) {
         mensaje.innerHTML = `<i class="ph ph-wifi-x text-4xl mb-2 text-red-500"></i><br><span class="text-red-500 font-bold">Error de red. Intente nuevamente.</span>`;
     } finally {
@@ -693,8 +686,6 @@ function restaurarBotonReporte(btn, htmlOriginal) {
     btn.disabled = false;
     btn.innerHTML = htmlOriginal;
 }
-
-
 
 // ==========================================
 // 8. LÓGICA DE EDICIÓN Y CREACIÓN (MODAL)
