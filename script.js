@@ -410,20 +410,20 @@ document.getElementById('form-lectura-camara').addEventListener('submit', async 
             btn.innerHTML = '<i class="ph ph-check-circle text-2xl"></i> ¡Guardado Exitosamente!';
             
             setTimeout(() => {
-                // Guardamos el estado actual para no forzar al usuario a elegirlos de nuevo
                 const camaraActual = document.getElementById('camara-select').value;
                 const fechaActual = document.getElementById('val-fecha').value;
                 
                 document.getElementById('form-lectura-camara').reset();
                 
-                // Restauramos la cámara y fecha
                 document.getElementById('camara-select').value = camaraActual;
                 document.getElementById('val-fecha').value = fechaActual;
                 
-                // Ocultar elementos si es necesario
-                document.getElementById('val-incidencia').value = '';
+                // --- SOLUCIÓN: LIMPIAR ESTADO Y OBSERVACIONES ---
+                document.getElementById('panel-estado').classList.add('hidden');
+                document.getElementById('val-incidencia').removeAttribute('required');
+                document.getElementById('val-incidencia').value = ''; 
+                // ------------------------------------------------
                 
-                // Volvemos a consultar los turnos, para que el recién guardado aparezca tachado (❌)
                 verificarTurnosDisponibles();
                 
                 restaurarBotonGuardar(btn, originalBtnHTML);
