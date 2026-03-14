@@ -26,27 +26,30 @@
         </p>
       </div>
     </div>
-
-    <div class="p-6 md:p-8">
+<div class="p-6 md:p-8">
       <form id="form-lectura-camara" class="space-y-6">
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
+          <div class="md:col-span-2">
             <label class="block text-sm font-bold text-gray-700 mb-2">Cámara a controlar</label>
             <select id="camara-select" required disabled class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-50 py-3 px-4 border transition-colors cursor-not-allowed">
               <option value="">Cargando catálogo...</option>
             </select>
           </div>
-          <div>
+          <div class="md:col-span-1">
             <label class="block text-sm font-bold text-gray-700 mb-2">Fecha</label>
             <input type="date" id="val-fecha" required class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white py-3 px-4 border">
           </div>
-          <div>
-            <label class="block text-sm font-bold text-gray-700 mb-2">Turno de Lectura</label>
-            <select id="turno-select" required disabled class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-50 py-3 px-4 border">
-              <option value="">Seleccione cámara y fecha primero</option>
-            </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-2">Turno de Lectura</label>
+          <div id="turnos-container" class="grid grid-cols-3 md:grid-cols-6 gap-3">
+             <div class="col-span-3 md:col-span-6 text-sm text-gray-500 py-3 text-center bg-gray-50 rounded-lg border border-dashed">
+                Seleccione una cámara primero...
+             </div>
           </div>
+          <input type="hidden" id="turno-seleccionado" required>
         </div>
 
         <div id="banner-limites" class="hidden bg-blue-50 text-blue-800 text-sm p-4 rounded-lg border border-blue-200 flex flex-col md:flex-row md:items-center justify-between gap-2 shadow-inner">
@@ -65,9 +68,17 @@
           </div>
         </div>
 
+        <div id="panel-estado" class="hidden rounded-lg p-4 border flex items-start gap-4 transition-colors duration-300 shadow-sm">
+           <div id="icono-estado" class="mt-1"></div>
+           <div class="flex-1">
+              <h4 id="titulo-estado" class="font-bold text-lg mb-1"></h4>
+              <p id="desc-estado" class="text-sm font-medium"></p>
+           </div>
+        </div>
+
         <div>
-          <label class="block text-sm font-bold text-gray-700 mb-2">Observaciones / Desviaciones (Opcional)</label>
-          <textarea id="val-incidencia" rows="2" placeholder="Describa si hay escarcha, puerta abierta, mantenimiento, etc..." class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 py-3 px-4 border transition-colors"></textarea>
+          <label class="block text-sm font-bold text-gray-700 mb-2">Medidas Correctivas / Observaciones</label>
+          <textarea id="val-incidencia" rows="2" placeholder="Opcional. Si el estado marca DESVIACIÓN, este campo será obligatorio..." class="w-full rounded-lg border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 py-3 px-4 border transition-colors"></textarea>
         </div>
 
         <div class="pt-2">
@@ -78,6 +89,7 @@
 
       </form>
     </div>
+  
   </div>
 
   <script src="script.js"></script>
