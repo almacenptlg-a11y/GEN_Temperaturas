@@ -629,16 +629,23 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
                         const bgWarning = isDesviacion ? 'bg-red-50 dark:bg-red-900/10' : '';
                         const tooltip = `Registrado por: ${reg.usuario}\nObs: ${reg.incidencia || 'Ninguna'}`;
                         const obsSpan = isDesviacion ? '<span class="block text-[10px] text-red-500 font-normal">Ver Obs.</span>' : '';
+                        
+                        // Validar si el usuario tiene permisos para editar
+                        const puedeEditar = currentUser && (currentUser.rol.toUpperCase() === 'JEFE' || currentUser.rol.toUpperCase() === 'ADMINISTRADOR');
+                        
+                        // Añadir evento click e indicadores visuales (borde azul al pasar el mouse)
+                        const accionClick = puedeEditar ? `onclick="abrirModalEdicion('${reg.id}', '${reg.fecha}', '${reg.turno}', ${reg.temp}, ${reg.humedad || "''"}, '${(reg.incidencia || '').replace(/'/g, "\\'")}')"` : '';
+                        const cursorClass = puedeEditar ? 'cursor-pointer hover:ring-2 hover:ring-inset hover:ring-blue-400 dark:hover:ring-blue-500 transition-all' : 'cursor-help';
 
                         if (usaHumedad) {
-                            bodyHTML += `<td class="px-2 py-2 text-center border-r border-gray-200 dark:border-gray-700 cursor-help ${textColor} ${bgWarning}" title="${tooltip}">
+                            bodyHTML += `<td ${accionClick} class="px-2 py-2 text-center border-r border-gray-200 dark:border-gray-700 ${cursorClass} ${textColor} ${bgWarning}" title="${tooltip}">
                                             ${reg.temp}° ${obsSpan}
                                          </td>`;
-                            bodyHTML += `<td class="px-2 py-2 text-center border-r border-gray-200 dark:border-gray-700 cursor-help text-blue-600 dark:text-blue-400 font-medium ${bgWarning}" title="${tooltip}">
+                            bodyHTML += `<td ${accionClick} class="px-2 py-2 text-center border-r border-gray-200 dark:border-gray-700 ${cursorClass} text-blue-600 dark:text-blue-400 font-medium ${bgWarning}" title="${tooltip}">
                                             ${reg.humedad ? reg.humedad + '%' : '-'}
                                          </td>`;
                         } else {
-                            bodyHTML += `<td class="px-4 py-2 text-center border-r border-gray-200 dark:border-gray-700 cursor-help ${textColor} ${bgWarning}" title="${tooltip}">
+                            bodyHTML += `<td ${accionClick} class="px-4 py-2 text-center border-r border-gray-200 dark:border-gray-700 ${cursorClass} ${textColor} ${bgWarning}" title="${tooltip}">
                                             ${reg.temp}° ${obsSpan}
                                          </td>`;
                         }
