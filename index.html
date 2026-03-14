@@ -43,6 +43,18 @@
 
     <div id="vista-registro" class="p-4 sm:p-6 md:p-8 block">
       <form id="form-lectura-camara" class="space-y-5 sm:space-y-6">
+
+        <div id="banner-limites" class="hidden bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-sm p-3 sm:p-4 rounded-xl border border-blue-200 dark:border-blue-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-inner">
+           <span id="txt-limites-temp" class="flex items-center gap-2"></span>
+           <span id="txt-limites-hr" class="flex items-center gap-2 font-medium"></span>
+        </div>
+         <div id="panel-estado" class="hidden rounded-xl p-3 sm:p-4 border flex items-start gap-3 sm:gap-4 transition-colors duration-300 shadow-sm">
+           <div id="icono-estado" class="mt-0.5 sm:mt-1"></div>
+           <div class="flex-1">
+              <h4 id="titulo-estado" class="font-bold text-base sm:text-lg mb-0.5 sm:mb-1"></h4>
+              <p id="desc-estado" class="text-xs sm:text-sm font-medium leading-tight"></p>
+           </div>
+        </div>
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
           <div class="md:col-span-2">
@@ -67,10 +79,7 @@
           <input type="hidden" id="turno-seleccionado" required>
         </div>
 
-        <div id="banner-limites" class="hidden bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-sm p-3 sm:p-4 rounded-xl border border-blue-200 dark:border-blue-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-inner">
-           <span id="txt-limites-temp" class="flex items-center gap-2"></span>
-           <span id="txt-limites-hr" class="flex items-center gap-2 font-medium"></span>
-        </div>
+        
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <div>
@@ -83,13 +92,7 @@
           </div>
         </div>
 
-        <div id="panel-estado" class="hidden rounded-xl p-3 sm:p-4 border flex items-start gap-3 sm:gap-4 transition-colors duration-300 shadow-sm">
-           <div id="icono-estado" class="mt-0.5 sm:mt-1"></div>
-           <div class="flex-1">
-              <h4 id="titulo-estado" class="font-bold text-base sm:text-lg mb-0.5 sm:mb-1"></h4>
-              <p id="desc-estado" class="text-xs sm:text-sm font-medium leading-tight"></p>
-           </div>
-        </div>
+       
 
         <div>
           <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Medidas Correctivas / Observaciones</label>
