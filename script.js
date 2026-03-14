@@ -379,18 +379,18 @@ document.getElementById('form-lectura-camara').addEventListener('submit', async 
     const originalBtnHTML = btn.innerHTML;
     
     // VALIDACIÓN: Asegurarnos de que el turno no es un placeholder vacío
-    const turnoSeleccionado = document.getElementById('turno-select').value;
-    if (!turnoSeleccionado) {
-        alert("Por favor seleccione un turno disponible.");
+    const turnoElegido = document.getElementById('turno-seleccionado').value;
+    
+    if (!turnoElegido) {
+        alert("Por favor seleccione el botón de un turno disponible antes de guardar.");
         return;
     }
 
-    // ARMADO DEL PAYLOAD CORREGIDO
     const payload = {
         action: 'registrarLecturaCamara',
         idCamara: document.getElementById('camara-select').value,
-        fecha: formatearFecha(document.getElementById('val-fecha').value), // Agregada la fecha
-        turno: turnoSeleccionado,
+        fecha: formatearFecha(document.getElementById('val-fecha').value),
+        turno: turnoElegido, // <--- Usar la nueva variable aquí
         temperatura: document.getElementById('val-temp').value,
         humedad: document.getElementById('val-humedad').value,
         incidencia: document.getElementById('val-incidencia').value,
