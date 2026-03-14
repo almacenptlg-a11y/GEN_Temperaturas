@@ -55,10 +55,10 @@ document.addEventListener('DOMContentLoaded', () => {
 // AL INICIAR EL MÓDULO: Configurar la fecha de hoy por defecto
 function configurarFechaInicial() {
     const hoy = new Date();
-    // Ajuste simple para GMT-5 (Hora Perú) sin depender de librerías
-    hoy.setHours(hoy.getHours() - 5);
+    hoy.setHours(hoy.getHours() - 5); // Ajuste simple para GMT-5
     const fechaISO = hoy.toISOString().split('T')[0]; // "YYYY-MM-DD"
-    document.getElementById('val-fecha').value = fechaISO;
+    const inputFecha = document.getElementById('val-fecha');
+    if (inputFecha) inputFecha.value = fechaISO;
 }
 
 // Función central de desbloqueo de UI
@@ -70,6 +70,17 @@ function iniciarModuloConUsuario(usuario) {
     if (nombreDisplay) {
         nombreDisplay.innerHTML = `<i class="ph ph-user-check"></i> Operador: ${usuario.nombre} | ${usuario.area}`;
     }
+
+    // Setear la fecha de hoy por defecto al cargar
+    configurarFechaInicial();
+
+    // Iniciar carga de datos desde la Base de Datos
+    cargarCamaras();
+} // <--- ESTA ES LA LLAVE QUE FALTABA
+
+// ==========================================
+// 2. UTILIDADES Y VERIFICACIÓN DE TURNOS
+// ==========================================
 
 // UTILIDAD: Convertir YYYY-MM-DD a DD/MM/YYYY para el Backend
 function formatearFecha(fechaInput) {
@@ -123,7 +134,7 @@ async function verificarTurnosDisponibles() {
             });
 
             if (disponibles === 0) {
-                selectTurno.innerHTML = '<option value="">⚠️ Todos los turnos completados hoy</option>';
+                selectTurno.innerHTML = '<option value="">⚠️ Todos los turnos completados para esta fecha</option>';
             } else {
                 selectTurno.disabled = false;
                 selectTurno.classList.remove('bg-gray-50');
@@ -134,89 +145,77 @@ async function verificarTurnosDisponibles() {
     }
 }
 
-// === REACTIVIDAD DE EVENTOS ===
+// ==========================================
+// 3. REACTIVIDAD DE EVENTOS (DOM)
+// ==========================================
 
-// 1. Cuando cambia la cámara elegida, se revisan los límites (tu código actual) Y los turnos
+// Cuando cambia la cámara elegida, se revisan los límites y los turnos
 document.getElementById('camara-select').addEventListener('change', (e) => {
-    // ... (Mantén tu código de mostrar límites de Temp y Humedad aquí) ...
+    const idCamara = e.target.value;
+    const camara = camarasDisponibles.find(c => c.id.toString() === idCamara.toString());
     
-    // Y al final llamas a la verificación de turnos:
+    const boxHumedad = document.getElementById('box-humedad');
+    const inputHumedad = document.getElementById('val-humedad');
+    const banner = document.getElementById('banner-limites');
+    const txtTemp = document.getElementById('txt-limites-temp');
+    const txtHr = document.getElementById('txt-limites-hr');
+
+    if (!camara) {
+        banner.classList.add('hidden');
+        boxHumedad.classList.add('hidden');
+        inputHumedad.removeAttribute('required');
+        verificarTurnosDisponibles(); // Bloqueará los turnos
+        return;
+    }
+
+    // Mostrar límites de temperatura
+    banner.classList.remove('hidden');
+    txtTemp.innerHTML = `<i class="ph ph-thermometer-simple text-xl text-blue-600"></i> <strong>Rango Temp:</strong> ${camara.minTemp}°C a ${camara.maxTemp}°C`;
+
+    // Gestionar input de humedad si la cámara lo requiere
+    if (camara.minHr !== null && camara.maxHr !== null && camara.maxHr > 0) {
+        boxHumedad.classList.remove('hidden');
+        inputHumedad.setAttribute('required', 'true');
+        
+        let minH = camara.minHr <= 1 ? camara.minHr * 100 : camara.minHr;
+        let maxH = camara.maxHr <= 1 ? camara.maxHr * 100 : camara.maxHr;
+        
+        txtHr.innerHTML = `<i class="ph ph-drop text-xl text-blue-600"></i> <strong>Rango HR:</strong> ${minH}% a ${maxH}%`;
+    } else {
+        boxHumedad.classList.add('hidden');
+        inputHumedad.removeAttribute('required');
+        inputHumedad.value = '';
+        txtHr.innerHTML = '';
+    }
+
+    // Verificamos qué turnos están libres para esta cámara
     verificarTurnosDisponibles();
 });
 
-// 2. REGLA ESTRICTA DE FECHA: Blur y Keydown (Enter), validando longitud
+// REGLA ESTRICTA DE FECHA: Blur y Keydown (Enter), validando longitud
 const inputFecha = document.getElementById('val-fecha');
+if (inputFecha) {
+    inputFecha.addEventListener('blur', (e) => {
+        if (e.target.value.length === 10) verificarTurnosDisponibles();
+    });
 
-inputFecha.addEventListener('blur', (e) => {
-    if (e.target.value.length === 10) {
-        verificarTurnosDisponibles();
-    }
-});
-
-inputFecha.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && e.target.value.length === 10) {
-        e.preventDefault();
-        verificarTurnosDisponibles();
-    }
-});
-
-// 3. ACTUALIZAR EL PAYLOAD DEL SUBMIT PARA ENVIAR LA FECHA MANUAL
-// En tu document.getElementById('form-lectura-camara').addEventListener('submit'...
-    const payload = {
-        action: 'registrarLecturaCamara',
-        idCamara: document.getElementById('camara-select').value,
-        fecha: formatearFecha(document.getElementById('val-fecha').value), // NUEVO
-        turno: document.getElementById('turno-select').value,
-        temperatura: document.getElementById('val-temp').value,
-        humedad: document.getElementById('val-humedad').value,
-        incidencia: document.getElementById('val-incidencia').value,
-        userName: currentUser.nombre 
-    };
-    
-    // Tras el success del fetch de guardado, recargamos la disponibilidad:
-    // ...
-    if (response.status === 'success') {
-       // ... tu feedback de éxito ...
-       setTimeout(() => {
-           // Reseteamos form, PERO mantenemos la cámara y fecha para seguir rápido
-           const camaraActual = document.getElementById('camara-select').value;
-           const fechaActual = document.getElementById('val-fecha').value;
-           
-           document.getElementById('form-lectura-camara').reset();
-           
-           document.getElementById('camara-select').value = camaraActual;
-           document.getElementById('val-fecha').value = fechaActual;
-           
-           // Ocultar humedad si aplica (reiniciar UI)
-           // ...
-           
-           // Volver a verificar turnos para ocultar el que acabamos de registrar
-           verificarTurnosDisponibles();
-       }, 1500);
-    }
-    
-    // Desbloquear botón de guardado
-    const btnGuardar = document.getElementById('btn-guardar-lectura');
-    if (btnGuardar) {
-        btnGuardar.disabled = false;
-        btnGuardar.classList.remove('bg-gray-400', 'cursor-not-allowed');
-        btnGuardar.classList.add('bg-blue-600', 'hover:bg-blue-700');
-        btnGuardar.innerHTML = '<i class="ph ph-floppy-disk text-2xl"></i> Registrar Lectura';
-    }
-
-    // Iniciar carga de datos desde la Base de Datos
-    cargarCamaras();
+    inputFecha.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.value.length === 10) {
+            e.preventDefault();
+            verificarTurnosDisponibles();
+        }
+    });
 }
 
 // ==========================================
-// 2. COMUNICACIÓN CON LA API (BACKEND GAS)
+// 4. COMUNICACIÓN CON LA API (BACKEND GAS)
 // ==========================================
 
 async function apiFetch(payload) {
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
-            body: JSON.stringify(payload) // Enviado como text/plain implícito para evitar CORS
+            body: JSON.stringify(payload)
         });
         return await response.json();
     } catch (error) {
@@ -225,10 +224,7 @@ async function apiFetch(payload) {
     }
 }
 
-// ==========================================
-// 3. LÓGICA DE NEGOCIO (CÁMARAS Y FORMULARIO)
-// ==========================================
-
+// Cargar catálogo de cámaras
 async function cargarCamaras() {
     const select = document.getElementById('camara-select');
     select.innerHTML = '<option value="">Descargando cámaras autorizadas...</option>';
@@ -247,10 +243,18 @@ async function cargarCamaras() {
             camarasDisponibles = response.data;
             llenarSelectCamaras(camarasDisponibles);
             
-            // Habilitar el select
             select.disabled = false;
             select.classList.remove('cursor-not-allowed', 'bg-gray-50');
             select.classList.add('bg-white');
+            
+            // Habilitar el botón general
+            const btnGuardar = document.getElementById('btn-guardar-lectura');
+            if (btnGuardar) {
+                btnGuardar.disabled = false;
+                btnGuardar.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                btnGuardar.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                btnGuardar.innerHTML = '<i class="ph ph-floppy-disk text-2xl"></i> Registrar Lectura';
+            }
         } else {
             alert("Error del servidor: " + response.message);
             select.innerHTML = '<option value="">Error al cargar</option>';
@@ -269,48 +273,10 @@ function llenarSelectCamaras(camaras) {
     });
 }
 
-// Reactividad: Mostrar/Ocultar Humedad y Límites según la cámara elegida
-document.getElementById('camara-select').addEventListener('change', (e) => {
-    const idCamara = e.target.value;
-    const camara = camarasDisponibles.find(c => c.id.toString() === idCamara.toString());
-    
-    const boxHumedad = document.getElementById('box-humedad');
-    const inputHumedad = document.getElementById('val-humedad');
-    const banner = document.getElementById('banner-limites');
-    const txtTemp = document.getElementById('txt-limites-temp');
-    const txtHr = document.getElementById('txt-limites-hr');
+// ==========================================
+// 5. ENVÍO DEL FORMULARIO
+// ==========================================
 
-    if (!camara) {
-        banner.classList.add('hidden');
-        boxHumedad.classList.add('hidden');
-        inputHumedad.removeAttribute('required');
-        return;
-    }
-
-    // Mostrar límites de temperatura
-    banner.classList.remove('hidden');
-    txtTemp.innerHTML = `<i class="ph ph-thermometer-simple text-xl text-blue-600"></i> <strong>Rango Temp:</strong> ${camara.minTemp}°C a ${camara.maxTemp}°C`;
-
-    // Gestionar input de humedad si la cámara lo requiere
-    if (camara.minHr !== null && camara.maxHr !== null && camara.maxHr > 0) {
-        boxHumedad.classList.remove('hidden');
-        inputHumedad.setAttribute('required', 'true');
-        
-        // Convertir a porcentaje visual si viene en decimal (ej. 0.85 -> 85%)
-        let minH = camara.minHr <= 1 ? camara.minHr * 100 : camara.minHr;
-        let maxH = camara.maxHr <= 1 ? camara.maxHr * 100 : camara.maxHr;
-        
-        txtHr.innerHTML = `<i class="ph ph-drop text-xl text-blue-600"></i> <strong>Rango HR:</strong> ${minH}% a ${maxH}%`;
-    } else {
-        // Ocultar humedad si no aplica
-        boxHumedad.classList.add('hidden');
-        inputHumedad.removeAttribute('required');
-        inputHumedad.value = '';
-        txtHr.innerHTML = '';
-    }
-});
-
-// Enviar los datos al Servidor
 document.getElementById('form-lectura-camara').addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -322,14 +288,23 @@ document.getElementById('form-lectura-camara').addEventListener('submit', async 
     const btn = document.getElementById('btn-guardar-lectura');
     const originalBtnHTML = btn.innerHTML;
     
+    // VALIDACIÓN: Asegurarnos de que el turno no es un placeholder vacío
+    const turnoSeleccionado = document.getElementById('turno-select').value;
+    if (!turnoSeleccionado) {
+        alert("Por favor seleccione un turno disponible.");
+        return;
+    }
+
+    // ARMADO DEL PAYLOAD CORREGIDO
     const payload = {
         action: 'registrarLecturaCamara',
         idCamara: document.getElementById('camara-select').value,
-        turno: document.getElementById('turno-select').value,
+        fecha: formatearFecha(document.getElementById('val-fecha').value), // Agregada la fecha
+        turno: turnoSeleccionado,
         temperatura: document.getElementById('val-temp').value,
         humedad: document.getElementById('val-humedad').value,
         incidencia: document.getElementById('val-incidencia').value,
-        userEmail: currentUser.nombre // Token validado
+        userName: currentUser.nombre // Ajustado al nombre del backend
     };
 
     // Estado Loading
@@ -341,19 +316,27 @@ document.getElementById('form-lectura-camara').addEventListener('submit', async 
         const response = await apiFetch(payload);
         
         if (response.status === 'success') {
-            // Feedback visual de éxito
             btn.classList.replace('bg-gray-500', 'bg-green-600');
             btn.innerHTML = '<i class="ph ph-check-circle text-2xl"></i> ¡Guardado Exitosamente!';
             
-            // Limpiar formulario y restaurar UI tras 1.5s
             setTimeout(() => {
-                document.getElementById('form-lectura-camara').reset();
-                document.getElementById('banner-limites').classList.add('hidden');
-                document.getElementById('box-humedad').classList.add('hidden');
+                // Guardamos el estado actual para no forzar al usuario a elegirlos de nuevo
+                const camaraActual = document.getElementById('camara-select').value;
+                const fechaActual = document.getElementById('val-fecha').value;
                 
-                btn.disabled = false;
-                btn.classList.replace('bg-green-600', 'bg-blue-600');
-                btn.innerHTML = originalBtnHTML;
+                document.getElementById('form-lectura-camara').reset();
+                
+                // Restauramos la cámara y fecha
+                document.getElementById('camara-select').value = camaraActual;
+                document.getElementById('val-fecha').value = fechaActual;
+                
+                // Ocultar elementos si es necesario
+                document.getElementById('val-incidencia').value = '';
+                
+                // Volvemos a consultar los turnos, para que el recién guardado aparezca tachado (❌)
+                verificarTurnosDisponibles();
+                
+                restaurarBotonGuardar(btn, originalBtnHTML);
             }, 1500);
             
         } else {
