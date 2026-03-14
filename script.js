@@ -693,8 +693,11 @@ function restaurarBotonReporte(btn, htmlOriginal) {
     btn.disabled = false;
     btn.innerHTML = htmlOriginal;
 }
+
+
+
 // ==========================================
-// 8. LÓGICA DE EDICIÓN (MODAL)
+// 8. LÓGICA DE EDICIÓN Y CREACIÓN (MODAL)
 // ==========================================
 
 function abrirModalEdicion(id, fecha, turno, temp, hum, incidencia) {
@@ -702,12 +705,34 @@ function abrirModalEdicion(id, fecha, turno, temp, hum, incidencia) {
     const camaraSel = camarasDisponibles.find(c => c.id.toString() === camaraId.toString());
     const usaHumedad = camaraSel && camaraSel.minHr !== null && camaraSel.maxHr !== null && camaraSel.maxHr > 0;
 
-    // Llenar datos en el Modal
-    document.getElementById('edit-id').value = id;
-    document.getElementById('edit-info-contexto').innerHTML = `<strong>${camaraSel.nombre}</strong><br>Fecha: ${fecha} | Turno: ${turno} hrs`;
-    document.getElementById('edit-temp').value = temp;
-    document.getElementById('edit-incidencia').value = incidencia;
+    const esNuevo = !id; // Si no hay ID, estamos creando
 
+    // Llenar datos de contexto
+    document.getElementById('edit-id').value = id || '';
+    document.getElementById('edit-fecha').value = fecha;
+    document.getElementById('edit-turno').value = turno;
+
+    document.getElementById('edit-info-contexto').innerHTML = `<strong>${camaraSel.nombre}</strong><br>Fecha: ${fecha} | Turno: ${turno} hrs`;
+    document.getElementById('edit-temp').value = temp || '';
+    
+    // UI Dinámica (Si crea o edita)
+    const titulo = document.getElementById('modal-titulo');
+    const btnText = document.getElementById('modal-btn-text');
+    const inputIncidencia = document.getElementById('edit-incidencia');
+    
+    inputIncidencia.value = incidencia || '';
+
+    if (esNuevo) {
+        titulo.innerHTML = '<i class="ph ph-plus-circle text-2xl"></i> Completar Registro';
+        btnText.innerHTML = '<i class="ph ph-floppy-disk text-lg"></i> Registrar Faltante';
+        inputIncidencia.removeAttribute('required'); // Al crear no es obligatorio a menos que haya desviación
+    } else {
+        titulo.innerHTML = '<i class="ph ph-pencil-simple text-2xl"></i> Editar Registro';
+        btnText.innerHTML = '<i class="ph ph-floppy-disk text-lg"></i> Actualizar Valor';
+        inputIncidencia.setAttribute('required', 'true'); // Al editar exigimos justificación
+    }
+
+    // Lógica de Humedad
     const boxHum = document.getElementById('edit-box-humedad');
     const inputHum = document.getElementById('edit-humedad');
     
@@ -730,21 +755,31 @@ function cerrarModalEdicion() {
     document.getElementById('form-editar-lectura').reset();
 }
 
-// Enviar Edición al Backend
+// Enviar Petición (Crear o Actualizar) al Backend
 document.getElementById('form-editar-lectura').addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const btn = document.getElementById('btn-guardar-edicion');
     const originalHTML = btn.innerHTML;
     
+    const idRegistro = document.getElementById('edit-id').value;
+    const esNuevo = !idRegistro;
+
+    // Payload dinámico: Si es nuevo va a 'registrarLecturaCamara', si existe va a 'actualizarLecturaCamara'
     const payload = {
-        action: 'actualizarLecturaCamara',
-        id: document.getElementById('edit-id').value,
+        action: esNuevo ? 'registrarLecturaCamara' : 'actualizarLecturaCamara',
+        idCamara: document.getElementById('rev-camara').value,
+        fecha: document.getElementById('edit-fecha').value,
+        turno: document.getElementById('edit-turno').value,
         temperatura: document.getElementById('edit-temp').value,
         humedad: document.getElementById('edit-humedad').value,
         incidencia: document.getElementById('edit-incidencia').value,
         userName: currentUser.nombre
     };
+
+    if (!esNuevo) {
+        payload.id = idRegistro;
+    }
 
     btn.disabled = true;
     btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
@@ -753,10 +788,10 @@ document.getElementById('form-editar-lectura').addEventListener('submit', async 
         const response = await apiFetch(payload);
         if (response.status === 'success') {
             cerrarModalEdicion();
-            // Disparar clic en el botón generar reporte para recargar la tabla automáticamente
+            // Disparar clic en el botón generar reporte para recargar la tabla y ver el cambio
             document.getElementById('btn-generar-reporte').click(); 
         } else {
-            alert('Error al editar: ' + response.message);
+            alert('Error al guardar: ' + response.message);
             btn.disabled = false;
             btn.innerHTML = originalHTML;
         }
