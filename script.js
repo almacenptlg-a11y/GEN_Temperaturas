@@ -89,25 +89,27 @@ function formatearFecha(fechaInput) {
     return `${d}/${m}/${y}`;
 }
 
-// NÚCLEO: Función que consulta la disponibilidad al backend
+// ==========================================
+// RENDERIZADO DE TURNOS (BOTONES HORIZONTALES)
+// ==========================================
+
 async function verificarTurnosDisponibles() {
     const idCamara = document.getElementById('camara-select').value;
     const inputFecha = document.getElementById('val-fecha').value;
-    const selectTurno = document.getElementById('turno-select');
+    const turnosContainer = document.getElementById('turnos-container');
+    const inputOcultoTurno = document.getElementById('turno-seleccionado');
+
+    inputOcultoTurno.value = ''; // Resetear turno elegido
 
     if (!idCamara || inputFecha.length !== 10) {
-        selectTurno.innerHTML = '<option value="">Seleccione cámara y fecha primero...</option>';
-        selectTurno.disabled = true;
-        selectTurno.classList.add('bg-gray-50');
+        turnosContainer.innerHTML = '<div class="col-span-3 md:col-span-6 text-sm text-gray-500 py-3 text-center bg-gray-50 rounded-lg border border-dashed">Seleccione cámara y fecha primero...</div>';
         return;
     }
 
     const fechaFormat = formatearFecha(inputFecha);
     
-    // Estado de carga visual en el select de turnos
-    selectTurno.disabled = true;
-    selectTurno.classList.add('bg-gray-50');
-    selectTurno.innerHTML = '<option value="">Consultando disponibilidad...</option>';
+    // UI Cargando
+    turnosContainer.innerHTML = '<div class="col-span-3 md:col-span-6 text-sm text-blue-600 font-bold py-4 text-center bg-blue-50 rounded-lg border border-blue-200"><i class="ph ph-spinner animate-spin text-xl inline-block align-middle mr-2"></i> Consultando turnos en servidor...</div>';
 
     try {
         const response = await apiFetch({
@@ -119,31 +121,119 @@ async function verificarTurnosDisponibles() {
         if (response.status === 'success') {
             const registrados = response.data;
             let disponibles = 0;
-            
-            selectTurno.innerHTML = '<option value="">Seleccione turno disponible...</option>';
+            turnosContainer.innerHTML = '';
             
             TODOS_LOS_TURNOS.forEach(turno => {
-                if (registrados.includes(turno)) {
-                    // Turno bloqueado (Ya existe en BD)
-                    selectTurno.innerHTML += `<option value="${turno}" disabled class="text-gray-400 bg-gray-100">❌ ${turno} hrs (Ya registrado)</option>`;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                const isOcupado = registrados.includes(turno);
+
+                if (isOcupado) {
+                    // Turno Bloqueado
+                    btn.className = "py-3 rounded-xl border bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed flex flex-col items-center justify-center gap-1 opacity-70";
+                    btn.innerHTML = `<i class="ph ph-check-square-offset text-2xl"></i><span class="font-bold text-sm">${turno}</span>`;
+                    btn.disabled = true;
                 } else {
-                    // Turno libre
-                    selectTurno.innerHTML += `<option value="${turno}" class="font-bold text-green-700">✅ ${turno} hrs</option>`;
+                    // Turno Libre
+                    btn.className = "turno-btn py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 transition-all flex flex-col items-center justify-center gap-1 cursor-pointer shadow-sm";
+                    btn.innerHTML = `<i class="ph ph-clock text-2xl"></i><span class="font-bold text-sm">${turno}</span>`;
+                    btn.onclick = () => seleccionarBotonTurno(turno, btn);
                     disponibles++;
                 }
+                turnosContainer.appendChild(btn);
             });
 
             if (disponibles === 0) {
-                selectTurno.innerHTML = '<option value="">⚠️ Todos los turnos completados para esta fecha</option>';
-            } else {
-                selectTurno.disabled = false;
-                selectTurno.classList.remove('bg-gray-50');
+                turnosContainer.innerHTML = '<div class="col-span-3 md:col-span-6 text-center text-amber-700 font-bold bg-amber-50 p-4 rounded-lg border border-amber-300">⚠️ Todos los turnos han sido completados para esta fecha.</div>';
             }
         }
     } catch (e) {
-        selectTurno.innerHTML = '<option value="">Error de conexión. Reintente.</option>';
+        turnosContainer.innerHTML = '<div class="col-span-3 md:col-span-6 text-center text-red-600 font-bold bg-red-50 p-3 rounded-lg border border-red-200">Error de red. Intente nuevamente.</div>';
     }
 }
+
+// Lógica de UI para seleccionar un botón
+function seleccionarBotonTurno(turno, btnActivado) {
+    document.getElementById('turno-seleccionado').value = turno;
+    
+    // Reiniciar estilos de todos los botones disponibles
+    const botones = document.querySelectorAll('.turno-btn');
+    botones.forEach(b => {
+        b.classList.remove('border-blue-600', 'bg-blue-50', 'text-blue-800', 'shadow-md', 'scale-[1.02]');
+        b.classList.add('border-gray-200', 'bg-white', 'text-gray-700');
+        b.querySelector('i').className = 'ph ph-clock text-2xl';
+    });
+
+    // Aplicar estilo al seleccionado
+    btnActivado.classList.remove('border-gray-200', 'bg-white', 'text-gray-700');
+    btnActivado.classList.add('border-blue-600', 'bg-blue-50', 'text-blue-800', 'shadow-md', 'scale-[1.02]');
+    btnActivado.querySelector('i').className = 'ph ph-check-circle-fill text-2xl text-blue-600';
+}
+
+
+// ==========================================
+// VALIDADOR DE ESTADO EN TIEMPO REAL (NUEVO)
+// ==========================================
+
+function evaluarParametrosEnVivo() {
+    const idCamara = document.getElementById('camara-select').value;
+    const camara = camarasDisponibles.find(c => c.id.toString() === idCamara.toString());
+    
+    const panelEstado = document.getElementById('panel-estado');
+    const inputTemp = document.getElementById('val-temp').value;
+    const inputHum = document.getElementById('val-humedad').value;
+    const textareaIncidencia = document.getElementById('val-incidencia');
+    
+    // Si no hay cámara o no han digitado temp, ocultar panel
+    if (!camara || inputTemp === '') {
+        panelEstado.classList.add('hidden');
+        textareaIncidencia.removeAttribute('required');
+        return;
+    }
+
+    const temp = parseFloat(inputTemp);
+    let esTempOk = (temp >= camara.minTemp && temp <= camara.maxTemp);
+    let esHumOk = true; // Por defecto true por si no requiere humedad
+
+    if (camara.minHr !== null && camara.maxHr !== null && camara.maxHr > 0 && inputHum !== '') {
+        const hum = parseFloat(inputHum);
+        let minH = camara.minHr <= 1 ? camara.minHr * 100 : camara.minHr;
+        let maxH = camara.maxHr <= 1 ? camara.maxHr * 100 : camara.maxHr;
+        esHumOk = (hum >= minH && hum <= maxH);
+    }
+
+    // Renderizar Panel
+    panelEstado.classList.remove('hidden');
+    const icon = document.getElementById('icono-estado');
+    const titulo = document.getElementById('titulo-estado');
+    const desc = document.getElementById('desc-estado');
+
+    if (esTempOk && esHumOk) {
+        // ESTADO OK
+        panelEstado.className = 'rounded-xl p-4 border flex items-start gap-4 shadow-sm bg-green-50 border-green-200';
+        icon.innerHTML = '<i class="ph ph-check-circle text-4xl text-green-600"></i>';
+        titulo.className = 'font-bold text-lg mb-0.5 text-green-800';
+        titulo.textContent = 'PARÁMETROS DENTRO DE RANGO';
+        desc.className = 'text-sm font-medium text-green-700';
+        desc.textContent = 'Todo se encuentra OK. Proceda a registrar.';
+        
+        textareaIncidencia.removeAttribute('required'); // No forzar observación
+    } else {
+        // ESTADO DESVIACIÓN
+        panelEstado.className = 'rounded-xl p-4 border flex items-start gap-4 shadow-sm bg-red-50 border-red-300 animate-pulse';
+        icon.innerHTML = '<i class="ph ph-warning-octagon text-4xl text-red-600"></i>';
+        titulo.className = 'font-bold text-lg mb-0.5 text-red-800';
+        titulo.textContent = '⚠️ DESVIACIÓN DETECTADA';
+        desc.className = 'text-sm font-medium text-red-700';
+        desc.textContent = 'Los valores superan el límite HACCP. Describa la medida correctiva aplicada abajo (Obligatorio).';
+        
+        textareaIncidencia.setAttribute('required', 'true'); // ¡Forzar justificación!
+    }
+}
+
+// Disparadores de Reactividad en Tiempo Real
+document.getElementById('val-temp').addEventListener('input', evaluarParametrosEnVivo);
+document.getElementById('val-humedad').addEventListener('input', evaluarParametrosEnVivo);
 
 // ==========================================
 // 3. REACTIVIDAD DE EVENTOS (DOM)
