@@ -194,7 +194,7 @@ document.getElementById('form-lectura-camara').addEventListener('submit', async 
         temperatura: document.getElementById('val-temp').value,
         humedad: document.getElementById('val-humedad').value,
         incidencia: document.getElementById('val-incidencia').value,
-        userEmail: currentUser.usuario // Token validado
+        userEmail: currentUser.nombre // Token validado
     };
 
     // Estado Loading
