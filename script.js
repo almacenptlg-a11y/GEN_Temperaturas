@@ -255,7 +255,9 @@ document.getElementById('camara-select').addEventListener('change', (e) => {
         boxHumedad.classList.add('hidden');
         inputHumedad.removeAttribute('required');
         verificarTurnosDisponibles(); // Bloqueará los turnos
-        return;
+        if (typeof evaluarParametrosEnVivo === 'function') {
+        evaluarParametrosEnVivo();
+    }
     }
 
     // Mostrar límites de temperatura
