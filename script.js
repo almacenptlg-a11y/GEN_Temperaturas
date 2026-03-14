@@ -1,12 +1,13 @@
+// script.js (Módulo Temperaturas - GitHub)
+
 const API_URL = "https://script.google.com/macros/s/AKfycbw9DjZJw8DelWMQQKvUxGhjHs1Ka0sWZPyHBu4lYwMg-2L-avGrzWNEoZOMXT8x9g3c/exec"; 
 let currentUser = null;
 let camarasDisponibles = [];
 
-// 1. ESCUCHAR EL MENSAJE DEL SISTEMA PADRE (GENAPPS)
+// 1. ESCUCHAR LA RESPUESTA DEL PADRE
 window.addEventListener("message", (event) => {
-  // Verificamos que el mensaje sea el de sincronización de sesión
   if (event.data && event.data.type === 'SESSION_SYNC') {
-    console.log("Sesión recibida en Iframe:", event.data.user);
+    console.log("Iframe: Sesión recibida desde GENAPPS", event.data.user);
     currentUser = event.data.user;
     
     // Desbloquear UI
@@ -18,19 +19,26 @@ window.addEventListener("message", (event) => {
     btnGuardar.classList.add('bg-blue-600', 'hover:bg-blue-700');
     btnGuardar.innerHTML = '<i class="ph ph-floppy-disk text-2xl"></i> Registrar Lectura';
 
-    // Cargar las cámaras ahora que sabemos quién es
+    // Cargar las cámaras
     cargarCamaras();
   }
 });
 
-// En caso de que alguien abra el módulo directamente sin pasar por GENAPPS
+// 2. EL HANDSHAKE: AVISAR AL PADRE QUE ESTAMOS LISTOS
 document.addEventListener("DOMContentLoaded", () => {
+  console.log("Iframe: DOM Cargado, solicitando sesión al Padre...");
+  // Le gritamos al contenedor principal que nos envíe la sesión
+  window.parent.postMessage({ type: 'MODULO_LISTO' }, '*');
+
+  // Si después de 3 segundos no hay respuesta, mostramos error
   setTimeout(() => {
     if (!currentUser) {
       document.getElementById('txt-usuario-activo').innerHTML = '<i class="ph ph-warning text-red-500"></i> Error: Sesión no sincronizada';
     }
-  }, 3000); // Da 3 segundos para que llegue el mensaje del padre
+  }, 3000); 
 });
+
+// ... (Mantén tu código de apiFetch, cargarCamaras y submit intacto de aquí hacia abajo) ...
 
 // Función genérica para interactuar con tu Backend
 async function apiFetch(payload) {
