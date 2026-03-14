@@ -17,9 +17,29 @@ let camarasDisponibles = [];
 window.addEventListener('message', function(event) {
     const data = event.data;
 
+    // 1. Recibir Sesión y Tema Inicial
     if (data && data.type === 'SESSION_SYNC') {
         const usuarioGenApps = data.user;
-        console.log("MÓDULO HIJO: Sesión recibida desde el Hub ->", usuarioGenApps);
+        sessionStorage.setItem('moduloUser', JSON.stringify(usuarioGenApps));
+        
+        // Aplicar tema inicial que nos manda el padre
+        if (data.theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+
+        iniciarModuloConUsuario(usuarioGenApps);
+    }
+
+    // 2. Escuchar cambios de tema en tiempo real (Si el usuario toca la luna/sol en GENAPPS)
+    if (data && data.type === 'THEME_UPDATE') {
+        if (data.theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    }
 
         // Guardamos en memoria local del Iframe para sobrevivir a recargas (F5)
         sessionStorage.setItem('moduloUser', JSON.stringify(usuarioGenApps));
