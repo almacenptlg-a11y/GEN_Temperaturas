@@ -581,7 +581,7 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
             let bodyHTML = '';
             
             // Feriados fijos de Perú (DD/MM)
-            const FERIADOS_PERU = ['01/01', '01/05', '29/06', '28/07', '29/07', '30/08', '08/10', '01/11', '08/12', '09/12', '25/12'];
+            const FERIADOS_PERU = ['01/01', '01/05', '07/06', '29/06', '23/07', '28/07', '29/07','06/08', '30/08', '08/10', '01/11', '08/12', '09/12', '25/12'];
             const diasAbrev = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
             for (let d = 1; d <= diasEnMes; d++) {
