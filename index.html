@@ -17,6 +17,28 @@
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     .dark ::-webkit-scrollbar-thumb { background: #475569; }
   </style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <style>
+    /* REGLAS EXCLUSIVAS PARA LA IMPRESORA NATIVA (Ctrl+P) */
+    @media print {
+      @page { size: auto; margin: 10mm; } 
+      body { background-color: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      
+      /* Ocultar toda la interfaz de la App web */
+      #app-container, #vista-revision, #vista-registro, .no-imprimir { display: none !important; }
+      
+      /* Mostrar SOLO el formato oficial */
+      #formato-oficial-impresion { display: block !important; position: absolute; top: 0; left: 0; width: 100%; }
+
+      /* Forzar delineado de tablas en papel */
+      table { border-collapse: collapse !important; width: 100% !important; page-break-inside: auto; }
+      tr { page-break-inside: avoid; page-break-after: auto; }
+      th, td { border: 1px solid #000 !important; padding: 4px !important; }
+    }
+  </style>
+  
 </head>
 <body class="bg-transparent text-gray-800 dark:text-gray-200 antialiased p-2 sm:p-4 min-h-screen">
 
@@ -139,13 +161,21 @@
         </div>
       </div>
 
-      <div id="rev-herramientas" class="hidden flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 transition-all">
+     <div id="rev-herramientas" class="hidden flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 transition-all no-imprimir">
         <div id="rev-banner-limites" class="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-xs sm:text-sm p-2 sm:p-3 rounded-xl border border-blue-200 dark:border-blue-800 flex flex-wrap gap-2 shadow-inner w-full sm:w-auto">
            <span id="rev-txt-temp" class="flex items-center gap-1"></span>
            <span id="rev-txt-hr" class="flex items-center gap-1 font-medium"></span>
         </div>
         
-        <div class="flex gap-2 w-full sm:w-auto">
+        <div class="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
+            <button id="btn-descargar-pdf" onclick="generarPDF()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 sm:px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-xs sm:text-sm">
+                <i class="ph ph-file-pdf text-lg"></i> <span class="hidden sm:inline">PDF</span>
+            </button>
+
+            <button id="btn-imprimir" onclick="prepararImpresion()" class="bg-gray-800 hover:bg-black text-white font-bold py-2 px-3 sm:px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-xs sm:text-sm">
+                <i class="ph ph-printer text-lg"></i> <span class="hidden sm:inline">Imprimir</span>
+            </button>
+
             <button id="btn-ejecutar-masivo" onclick="guardarCambiosMasivos()" class="hidden flex-1 sm:flex-none bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 sm:px-4 rounded-xl transition-all items-center justify-center gap-2 shadow-sm text-xs sm:text-sm">
                 <i class="ph ph-cloud-arrow-up text-lg"></i> <span id="txt-btn-guardar-masivo">Guardar (0)</span>
             </button>
@@ -209,22 +239,22 @@
     </div>
   </div>
 
-<div id="formato-oficial-impresion" class="hidden bg-white text-black font-sans text-[11px] max-w-[900px] mx-auto p-4">
+<div id="formato-oficial-impresion" class="hidden bg-white text-black font-sans text-[10px] max-w-[950px] mx-auto p-4">
       
       <table class="w-full text-center border-collapse border border-gray-400 mb-4" style="border: 0.5px solid #ddd;">
           <tr>
               <td rowspan="4" class="w-[15%] p-1 align-middle border border-gray-400">
                   <img src="https://lagenovesa.pe/wp-content/uploads//2021/12/logo_footer.png" alt="Logo" class="max-w-[120px] mx-auto">
               </td>
-              <td colspan="3" class="font-bold text-[14px] p-2 border border-gray-400">MANUAL DE BUENAS PRÁCTICAS DE MANUFACTURA</td>
+              <td colspan="3" id="print-titulo-main" class="font-bold text-[14px] p-2 border border-gray-400 uppercase"></td>
           </tr>
           <tr>
-              <td colspan="3" class="font-bold text-[14px] p-2 border border-gray-400">REGISTRO DE CONTROL DE TEMPERATURA DE CAMARAS</td>
+              <td colspan="3" id="print-titulo-sub" class="font-bold text-[14px] p-2 border border-gray-400 uppercase"></td>
           </tr>
           <tr>
               <td class="w-[28%] text-[12px] border border-gray-400 p-1">Versión: <span id="print-version"></span></td>
-              <td class="w-[28%] text-[12px] border border-gray-400 p-1">Revisión: 08/2025</td>
-              <td class="w-[28%] text-[12px] border border-gray-400 p-1">Código: <span id="print-codigo"></span></td>
+              <td class="w-[28%] text-[12px] border border-gray-400 p-1">Revisión: <span id="print-fecha-rev"></span></td>
+              <td class="w-[28%] text-[12px] border border-gray-400 p-1 font-bold">Código: <span id="print-codigo"></span></td>
           </tr>
           <tr>
               <td class="text-[12px] border border-gray-400 p-1">Elaborado por: Área de Calidad</td>
@@ -233,18 +263,18 @@
           </tr>
       </table>
       
-      <h2 class="font-bold text-[20px] text-center text-[#333] mb-1 uppercase">CÁMARA: <span id="print-camara-nombre"></span></h2>
-      <h2 class="font-bold text-[20px] text-center text-[#333] mb-3 uppercase">MES: <span id="print-mes-nombre"></span></h2>
+      <div class="flex justify-center gap-10 font-bold text-[16px] text-[#333] mb-3 uppercase">
+          <span>CAMARA: <span id="print-camara-nombre" class="font-normal text-[14px]"></span></span>
+          <span>MES: <span id="print-mes-nombre" class="font-normal text-[14px]"></span></span>
+      </div>
 
-      <table class="w-full mb-4 border-collapse border border-black text-center">
-          <thead class="bg-[#f4f4f4] font-bold border border-black" id="print-head-datos">
-              </thead>
-          <tbody id="print-body-datos" class="border border-black">
-              </tbody>
+      <table class="w-full mb-4 border-collapse border border-black text-center text-[10px]">
+          <thead class="bg-[#f4f4f4] font-bold border border-black" id="print-head-datos"></thead>
+          <tbody id="print-body-datos" class="border border-black"></tbody>
       </table>
 
-      <h4 class="font-bold mb-1 uppercase text-[#333]">Incidencias y medidas correctivas:</h4>
-      <table class="w-full mb-6 border-collapse border border-black text-left">
+      <h4 class="font-bold mb-1 uppercase text-[#333] text-[11px]">incidencias y medidas correctivas:</h4>
+      <table class="w-full mb-4 border-collapse border border-black text-left text-[10px]">
           <thead class="bg-[#f4f4f4] font-bold border border-black text-center">
               <tr>
                   <th class="border border-black p-1 w-24">Fecha</th>
@@ -252,13 +282,12 @@
                   <th class="border border-black p-1">Medida correctiva</th>
               </tr>
           </thead>
-          <tbody id="print-body-incidencias">
-              </tbody>
+          <tbody id="print-body-incidencias"></tbody>
       </table>
 
-      <div class="text-center mt-5 text-[10px] text-[#666]">
-          <h4 class="font-bold text-left text-black text-[12px] mb-1">Rangos e indicaciones de referencia:</h4>
-          <table class="w-full border-collapse border border-black text-center text-black">
+      <div class="mt-2 text-[9px] text-black">
+          <h4 class="font-bold text-left text-[11px] mb-1">Rangos e indicaciones de referencia:</h4>
+          <table class="w-full border-collapse border border-black text-center">
               <thead class="bg-[#f4f4f4] font-bold border border-black">
                   <tr>
                       <th class="border border-black p-1">Tipo camara / ambiente</th>
@@ -277,19 +306,20 @@
                   </tr>
                   <tr><td class="border border-black p-1">CAMARA REFRIGERACION</td><td class="border border-black p-1">0 °C</td><td class="border border-black p-1">5 °C</td><td class="border border-black p-1"></td></tr>
                   <tr><td class="border border-black p-1">AMBIENTE REFRIGERADO</td><td class="border border-black p-1">5 °C</td><td class="border border-black p-1">10 °C</td><td class="border border-black p-1">80% / 95%</td></tr>
-                  <tr id="print-row-maduracion"><td class="border border-black p-1">CAMARA DE MADURACIÓN</td><td class="border border-black p-1">10 °C</td><td class="border border-black p-1">15 °C</td><td class="border border-black p-1">70% / 80%</td></tr>
+                  <tr><td class="border border-black p-1">CAMARA DE MADURACIÓN</td><td class="border border-black p-1">10 °C</td><td class="border border-black p-1">15 °C</td><td class="border border-black p-1">70% / 80%</td></tr>
               </tbody>
           </table>
       </div>
 
-      <table class="w-full border-none font-bold mt-6">
+      <table class="w-full border-none font-bold mt-6 text-[10px]">
           <tr>
               <td class="text-right border-none w-full flex flex-col items-end">
-                  <div class="w-48 border-b border-black mb-1 h-12"></div> Reportado por: <span id="print-responsable" class="font-normal inline-block w-48 text-center"></span>
+                  <div class="w-48 border-b border-black mb-1 h-8"></div>
+                  Reportado por: <span id="print-responsable" class="font-normal inline-block w-48 text-center"></span>
               </td>
           </tr>
           <tr>
-              <td class="text-center text-[12px] border-none pt-4 font-normal">
+              <td class="text-center text-[10px] border-none pt-2 font-normal text-[#666]">
                   <em>La Genovesa Agroindustrias S.A. RUC: 20119873542 <br> Parque industrial Mz. I Lt. 10 Tacna - Tacna - Perú</em>
               </td>
           </tr>
