@@ -13,36 +13,64 @@ let modoEdicionActivo = false;
 
 
 // ==========================================
-// 1. GESTIÓN DE SESIÓN Y TEMA 
+// 1. GESTIÓN DE SESIÓN Y TEMA (MICRO-FRONTEND)
 // ==========================================
+
 window.addEventListener('message', function(event) {
     const data = event.data;
+
+    // 1. Recibir Sesión y Tema Inicial
     if (data && data.type === 'SESSION_SYNC') {
         const usuarioGenApps = data.user;
+        
+        // Guardamos en memoria local del Iframe para sobrevivir a recargas (F5)
         sessionStorage.setItem('moduloUser', JSON.stringify(usuarioGenApps));
-        if (data.theme === 'dark') document.documentElement.classList.add('dark');
-        else document.documentElement.classList.remove('dark');
+        
+        // Aplicar tema inicial que nos manda el padre
+        if (data.theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+
+        // ¡CLAVE! Siempre sobreescribimos la UI con el usuario REAL que manda el padre.
         iniciarModuloConUsuario(usuarioGenApps);
     }
+
+    // 2. Escuchar cambios de tema en tiempo real
     if (data && data.type === 'THEME_UPDATE') {
-        if (data.theme === 'dark') document.documentElement.classList.add('dark');
-        else document.documentElement.classList.remove('dark');
+        if (data.theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
     }
 });
 
+// Ciclo de vida al cargar la vista
 document.addEventListener('DOMContentLoaded', () => {
+    
+    // 1. HANDSHAKE OBLIGATORIO: La VERDAD ABSOLUTA la tiene la App Padre.
+    // Siempre le decimos al padre que estamos listos, obligándolo a enviar un 'SESSION_SYNC' fresco.
+    console.log("MÓDULO HIJO: DOM Cargado, solicitando sesión real al Padre...");
+    window.parent.postMessage({ type: 'MODULO_LISTO' }, '*');
+
+    // 2. REHIDRATACIÓN TEMPORAL (Solo UX Visual)
+    // Mostramos la memoria local temporalmente para que la pantalla no parpadee en blanco, 
+    // pero sabemos que en milisegundos el Padre responderá y actualizará con el usuario correcto.
     const savedUser = sessionStorage.getItem('moduloUser');
     if (savedUser) {
-        iniciarModuloConUsuario(JSON.parse(savedUser));
-    } else {
-        window.parent.postMessage({ type: 'MODULO_LISTO' }, '*');
-        setTimeout(() => {
-            if (!sessionStorage.getItem('moduloUser')) {
-                const uiUsuario = document.getElementById('txt-usuario-activo');
-                if(uiUsuario) uiUsuario.innerHTML = '<i class="ph ph-warning text-red-500"></i> Error: Sesión no sincronizada';
-            }
-        }, 3000);
+        const usuarioRehidratado = JSON.parse(savedUser);
+        iniciarModuloConUsuario(usuarioRehidratado);
     }
+
+    // 3. SEGURO ANTI-FALLOS
+    setTimeout(() => {
+        if (!currentUser) {
+            const uiUsuario = document.getElementById('txt-usuario-activo');
+            if(uiUsuario) uiUsuario.innerHTML = '<i class="ph ph-warning text-red-500"></i> Error: Sesión no sincronizada desde GENAPPS';
+        }
+    }, 3000);
 });
 
 function configurarFechaInicial() {
