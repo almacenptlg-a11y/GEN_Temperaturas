@@ -801,3 +801,115 @@ async function guardarCambiosMasivos() {
         actualizarPanelMasivo(); 
     }
 }
+
+// ==========================================
+// 7. MÓDULO DE IMPRESIÓN (AUDITORÍA OFICIAL)
+// ==========================================
+function prepararImpresion() {
+    if(ultimaDataRevision.length === 0) return alert("Genere primero un reporte en pantalla para poder imprimirlo.");
+    if(modoEdicionActivo) document.getElementById('btn-toggle-edicion').click(); 
+
+    const selectCamara = document.getElementById('rev-camara');
+    const camaraText = selectCamara.options[selectCamara.selectedIndex].text;
+    const cName = camaraText.toLowerCase();
+    
+    const mesText = document.getElementById('rev-mes').options[document.getElementById('rev-mes').selectedIndex].text;
+    const anioText = document.getElementById('rev-anio').value;
+
+    const diasEnMes = new Date(configRevisionActual.anio, configRevisionActual.mes, 0).getDate();
+    const usaHumedad = configRevisionActual.usaHumedad; // Lo toma dinámicamente de la cámara
+
+    // 1. LÓGICA CAMALEÓNICA: Asignación dinámica de Códigos y Versiones
+    let formatCode = 'LGA-BPM-SAF01';
+    let version = '4';
+    let showMaduracion = false;
+
+    if (cName.includes('desposte')) {
+        formatCode = 'LGA-BPM-SAF02';
+        version = '4';
+    } else if (cName.includes('maduración') || cName.includes('maduracion')) {
+        formatCode = 'LGA-BPM-F10';
+        version = '14';
+        showMaduracion = true;
+    } else if (cName.includes('empaque') || cName.includes('enfriamiento')) {
+        formatCode = 'LGA-BPM-SAF03';
+        version = '14';
+    } else if (cName.includes('pt') || cName.includes('congelación') || cName.includes('congelacion')) {
+        formatCode = 'LGA-BPM-F01';
+        version = '4';
+    } else {
+        // Fallback por defecto (carcasas, almacén mp, etc.)
+        formatCode = 'LGA-BPM-SAF01';
+        version = '4';
+    }
+
+    // 2. INYECTAR METADATOS EN EL MOLDE
+    document.getElementById('print-version').innerText = version;
+    document.getElementById('print-codigo').innerText = formatCode;
+    document.getElementById('print-camara-nombre').innerText = camaraText;
+    document.getElementById('print-mes-nombre').innerText = `${mesText} ${anioText}`;
+    document.getElementById('print-responsable').innerText = currentUser.nombre; 
+
+    // Mostrar u Ocultar fila de Maduración en el footer
+    const rowMaduracion = document.getElementById('print-row-maduracion');
+    if(showMaduracion) rowMaduracion.style.display = 'table-row';
+    else rowMaduracion.style.display = 'none';
+
+    // 3. ARMAR CABECERA DE LA TABLA EXACTA A LA ANTIGUA
+    let headH = `<tr><th rowspan="2" class="border border-black p-1">↡ Fecha / Hora ↠</th>`;
+    TODOS_LOS_TURNOS.forEach(t => {
+        headH += `<th colspan="${usaHumedad ? 2 : 1}" class="border border-black p-1">${t} ${usaHumedad ? '' : 'h'}</th>`;
+    });
+    headH += `</tr>`;
+    
+    // Si usa humedad, agregar la segunda fila de cabeceras (°C y %H)
+    if(usaHumedad) {
+        headH += `<tr>`;
+        TODOS_LOS_TURNOS.forEach(() => {
+            headH += `<th class="border border-black p-1">°C</th><th class="border border-black p-1">%H</th>`;
+        });
+        headH += `</tr>`;
+    }
+    document.getElementById('print-head-datos').innerHTML = headH;
+
+    // 4. GENERAR CUERPO DE DATOS E INCIDENCIAS AUTOMÁTICAS
+    let bodyH = '';
+    let bodyIncidencias = '';
+
+    for (let d = 1; d <= diasEnMes; d++) {
+        const fechaStr = `${d.toString().padStart(2, '0')}/${configRevisionActual.mes.toString().padStart(2, '0')}/${configRevisionActual.anio}`;
+        bodyH += `<tr><td class="border border-black p-1 font-bold">${fechaStr}</td>`;
+        
+        TODOS_LOS_TURNOS.forEach(turno => {
+            const reg = ultimaDataRevision.find(r => r.dia === d && r.turno === turno);
+            if (reg) {
+                bodyH += `<td class="border border-black p-1">${reg.temp === '' ? '' : reg.temp}</td>`;
+                if(usaHumedad) bodyH += `<td class="border border-black p-1">${reg.humedad === '' ? '' : reg.humedad}</td>`;
+
+                // Construcción de matriz de incidencias
+                if (reg.incidencia && reg.incidencia.trim() !== '') {
+                    bodyIncidencias += `
+                        <tr>
+                            <td class="border border-black p-1 text-center">${fechaStr} - ${turno}</td>
+                            <td class="border border-black p-1 text-left">${reg.incidencia}</td>
+                            <td class="border border-black p-1 text-left"></td>
+                        </tr>`;
+                }
+            } else {
+                bodyH += `<td class="border border-black p-1"></td>`;
+                if(usaHumedad) bodyH += `<td class="border border-black p-1"></td>`;
+            }
+        });
+        bodyH += `</tr>`;
+    }
+    
+    if (bodyIncidencias === '') {
+        bodyIncidencias = `<tr><td class="border border-black p-2 text-center">-</td><td class="border border-black p-2 text-center text-gray-500 italic">Sin incidencias</td><td class="border border-black p-2"></td></tr>`;
+    }
+
+    document.getElementById('print-body-datos').innerHTML = bodyH;
+    document.getElementById('print-body-incidencias').innerHTML = bodyIncidencias;
+
+    // 5. DISPARAR IMPRESIÓN DEL NAVEGADOR
+    setTimeout(() => { window.print(); }, 400);
+}
