@@ -366,6 +366,10 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
     const anio = document.getElementById('rev-anio').value;
     if (!idCamara) return alert("Seleccione una cámara.");
 
+    // Ocultar botones de reporte visual hasta que cargue la tabla
+    document.getElementById('btn-descargar-pdf').classList.add('hidden');
+    document.getElementById('btn-imprimir').classList.add('hidden');
+
     const camaraSel = camarasDisponibles.find(c => c.id.toString() === idCamara.toString());
     const usaHumedad = camaraSel && camaraSel.minHr !== null && camaraSel.maxHr !== null && camaraSel.maxHr > 0;
     configRevisionActual = { mes: parseInt(mes), anio: parseInt(anio), usaHumedad: usaHumedad };
@@ -389,6 +393,10 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
                 document.getElementById('tabla-mensaje').classList.add('hidden');
                 document.getElementById('tabla-container').classList.remove('hidden');
                 dibujarTabla(ultimaDataRevision, configRevisionActual);
+                
+                // Mostrar los botones de exportación solo cuando hay reporte generado
+                document.getElementById('btn-descargar-pdf').classList.remove('hidden');
+                document.getElementById('btn-imprimir').classList.remove('hidden');
             }
         } else document.getElementById('tabla-mensaje').innerHTML = `Error: ${response.message}`;
     } catch (error) { document.getElementById('tabla-mensaje').innerHTML = 'Error de red.'; } 
@@ -591,15 +599,6 @@ async function guardarCambiosMasivos() {
 // 7. MOTOR DE IMPRESIÓN Y EXPORTACIÓN PDF
 // ==========================================
 
-function obtenerFechaRevisionFormateada() {
-    // Retorna string formato "mes -yy" (Ej. "agosto -25")
-    const selectMes = document.getElementById('rev-mes');
-    const anio = document.getElementById('rev-anio').value;
-    const nombreMes = selectMes.options[selectMes.selectedIndex].text.toLowerCase();
-    const yy = anio.toString().slice(-2);
-    return `${nombreMes} -${yy}`;
-}
-
 function generarMoldeHACCP() {
     if(ultimaDataRevision.length === 0) { alert("Genere primero un reporte en pantalla."); return false; }
     if(modoEdicionActivo) document.getElementById('btn-toggle-edicion').click(); 
@@ -611,7 +610,7 @@ function generarMoldeHACCP() {
     const diasEnMes = new Date(configRevisionActual.anio, configRevisionActual.mes, 0).getDate();
     const usaHumedad = configRevisionActual.usaHumedad; 
 
-    // Lógica dinámica de documentos HACCP
+    // Lógica dinámica estricta de documentos HACCP (Fechas Fijas de Revisión)
     let formatCode = 'LGA-BPM-SAF01', version = '04', tituloMain = 'MANUAL DE BUENAS PRÁCTICAS DE MANUFACTURA', tituloSub = 'REGISTRO DE CONTROL DE TEMPERATURA DE CAMARAS';
 
     if (cName.includes('desposte')) { formatCode = 'LGA-BPM-SAF02'; } 
@@ -624,18 +623,18 @@ function generarMoldeHACCP() {
         else tituloSub = 'REGISTRO DE CONTROL PCC';
     }
 
-    // Inyección de Metadatos
+    // Inyección de Metadatos (La fecha se mantiene estática como en el original)
     document.getElementById('print-titulo-main').innerText = tituloMain;
     document.getElementById('print-titulo-sub').innerText = tituloSub;
     document.getElementById('print-version').innerText = version;
-    document.getElementById('print-fecha-rev').innerText = obtenerFechaRevisionFormateada();
+    document.getElementById('print-fecha-rev').innerText = '08/2025';
     document.getElementById('print-codigo').innerText = formatCode;
     document.getElementById('print-camara-nombre').innerText = camaraText;
     document.getElementById('print-mes-nombre').innerText = `${mesText} ${anioText}`;
     document.getElementById('print-responsable').innerText = currentUser.nombre; 
 
     // Construcción de Cabeceras
-    let headH = `<tr><th rowspan="2" class="border border-black p-1 w-16">Fecha</th>`;
+    let headH = `<tr><th rowspan="2" class="border border-black p-1 w-20">Fecha</th>`;
     TODOS_LOS_TURNOS.forEach(t => { headH += `<th colspan="${usaHumedad ? 2 : 1}" class="border border-black p-1">${t} ${usaHumedad ? '' : 'h'}</th>`; });
     headH += `</tr>`;
     if(usaHumedad) {
@@ -643,13 +642,25 @@ function generarMoldeHACCP() {
     }
     document.getElementById('print-head-datos').innerHTML = headH;
 
-    // Construcción de Datos e Incidencias (SIN FERIADOS TACHADOS)
+    // Construcción de Datos e Incidencias 
     let bodyH = ''; let bodyIncidencias = '';
+    const FERIADOS_PERU = ['01/01', '01/05', '07/06', '29/06', '23/07', '28/07', '29/07','06/08', '30/08', '08/10', '01/11', '08/12', '09/12', '25/12'];
+    const diasAbrev = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     
     for (let d = 1; d <= diasEnMes; d++) {
-        const fechaStr = `${d.toString().padStart(2, '0')}/${configRevisionActual.mes.toString().padStart(2, '0')}/${configRevisionActual.anio}`;
-        // NOTA: En impresión física, siempre se dibuja blanco/normal, no tachamos los feriados.
-        bodyH += `<tr><td class="border border-black p-1 font-bold">${fechaStr}</td>`;
+        const fechaFila = new Date(configRevisionActual.anio, configRevisionActual.mes - 1, d); 
+        const indiceDia = fechaFila.getDay(); 
+        const diaMesStr = `${d.toString().padStart(2, '0')}/${configRevisionActual.mes.toString().padStart(2, '0')}`;
+        const esInactivo = (indiceDia === 0 || indiceDia === 6) || FERIADOS_PERU.includes(diaMesStr);
+
+        // OMITIR COMPLETAMENTE DÍAS INACTIVOS EN IMPRESIÓN (Fines de semana y Feriados)
+        if(esInactivo) continue; 
+
+        // Formato exacto de fecha para el papel (Ej. "Lun 30")
+        const fechaAbrevStr = `${diasAbrev[indiceDia]} ${d.toString().padStart(2, '0')}`;
+        const fechaFullStr = `${d.toString().padStart(2, '0')}/${configRevisionActual.mes.toString().padStart(2, '0')}/${configRevisionActual.anio}`;
+
+        bodyH += `<tr><td class="border border-black p-1 font-bold">${fechaAbrevStr}</td>`;
         
         TODOS_LOS_TURNOS.forEach(turno => {
             const reg = ultimaDataRevision.find(r => r.dia === d && r.turno === turno);
@@ -658,7 +669,7 @@ function generarMoldeHACCP() {
                 if(usaHumedad) bodyH += `<td class="border border-black p-1">${reg.humedad === '' ? '-' : reg.humedad}</td>`;
 
                 if (reg.incidencia && reg.incidencia.trim() !== '') {
-                    bodyIncidencias += `<tr><td class="border border-black p-1 text-center font-bold">${fechaStr} - ${turno}</td><td class="border border-black p-1 text-left px-2">${reg.incidencia}</td><td class="border border-black p-1 text-left"></td></tr>`;
+                    bodyIncidencias += `<tr><td class="border border-black p-1 text-center font-bold">${fechaFullStr} - ${turno}</td><td class="border border-black p-1 text-left px-2">${reg.incidencia}</td><td class="border border-black p-1 text-left"></td></tr>`;
                 }
             } else {
                 bodyH += `<td class="border border-black p-1">-</td>`;
@@ -693,9 +704,8 @@ function generarPDF() {
     const mesText = document.getElementById('rev-mes').options[document.getElementById('rev-mes').selectedIndex].text;
     const filename = `Reporte_${camaraText.replace(/\s+/g, '_')}_${mesText}.pdf`;
 
-    // OPTIMIZACIÓN PDF: Forzamos tamaño de hoja, compresión de imagen y scale para que no se corte
     const opt = {
-        margin:       0.3, // Margen milimétrico ajustado
+        margin:       0.3,
         filename:     filename,
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2, useCORS: true, letterRendering: true, windowWidth: 1000 },
