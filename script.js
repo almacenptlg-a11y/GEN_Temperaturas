@@ -293,7 +293,7 @@ function switchTab(tab) {
 
     if (tab === 'registro') {
         vReg.classList.replace('hidden', 'block');
-        vRev.classList.replace('flex', 'hidden'); // Flex porque revision usa flex-col
+        vRev.classList.replace('flex', 'hidden'); 
         tReg.classList.add('border-blue-600', 'text-blue-600', 'dark:text-blue-400');
         tReg.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
         tRev.classList.remove('border-blue-600', 'text-blue-600', 'dark:text-blue-400');
@@ -372,8 +372,18 @@ document.getElementById('btn-toggle-edicion').addEventListener('click', () => {
         document.getElementById('txt-btn-edicion').innerText = "Activar Edición";
     }
 
-    // Redibujar la matriz sin ir al servidor
+    // Lógica para alternar la visibilidad de la tabla en meses vacíos
     if (ultimaDataRevision.length > 0 || configRevisionActual.mes) {
+        if (modoEdicionActivo) {
+            // Mostrar la tabla obligatoriamente si entramos a editar
+            document.getElementById('tabla-mensaje').classList.add('hidden');
+            document.getElementById('tabla-container').classList.remove('hidden');
+        } else if (ultimaDataRevision.length === 0) {
+            // Si salimos de edición y el mes estaba vacío, volver a ocultar la tabla
+            document.getElementById('tabla-container').classList.add('hidden');
+            document.getElementById('tabla-mensaje').classList.remove('hidden');
+            document.getElementById('tabla-mensaje').innerHTML = '<i class="ph ph-folder-open text-5xl mb-3 text-gray-400"></i><br>Sin registros en este mes.';
+        }
         dibujarTabla(ultimaDataRevision, configRevisionActual);
     }
 });
@@ -407,8 +417,9 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
         const response = await apiFetch({ action: 'getRegistrosRevision', idCamara: idCamara, mes: mes, anio: anio });
 
         if (response.status === 'success') {
-            ultimaDataRevision = response.data; // Guardamos en memoria
+            ultimaDataRevision = response.data; 
             
+            // Evaluamos si el mes está vacío y no estamos en edición
             if (ultimaDataRevision.length === 0 && !modoEdicionActivo) {
                 document.getElementById('tabla-mensaje').innerHTML = '<i class="ph ph-folder-open text-5xl mb-3 text-gray-400"></i><br>Sin registros en este mes.';
             } else {
@@ -426,7 +437,6 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
     }
 });
 
-// Función centralizada para dibujar la tabla (permite redibujar al cambiar modo edición)
 function dibujarTabla(data, config) {
     const thead = document.getElementById('tabla-head');
     const tbody = document.getElementById('tabla-body');
@@ -521,14 +531,12 @@ function dibujarTabla(data, config) {
 // ==========================================
 
 function generarCelda(valor, fecha, turno, tipo, puedeEditar, isDesviacion) {
-    // Si no está el Modo Edición Activo, mostramos solo Texto plano (Optimización Visual)
     if (!modoEdicionActivo || !puedeEditar) {
         let textStyle = valor === '' ? 'text-gray-300 dark:text-gray-600' : (isDesviacion ? 'text-red-600 font-bold' : 'text-gray-800 dark:text-gray-200 font-semibold');
         if (tipo === 'hum' && valor !== '') textStyle = 'text-blue-600 font-medium dark:text-blue-400';
         return `<span class="text-xs sm:text-sm ${textStyle}">${valor === '' ? '-' : valor + (tipo === 'temp' ? '°' : '%')}</span>`;
     }
     
-    // Si está en Modo Edición, mostramos Inputs
     const placeholder = tipo === 'temp' ? '°' : '%';
     const textColor = valor === '' ? 'text-gray-900 dark:text-gray-100' : '';
     
@@ -601,8 +609,8 @@ function validarCeldaMasiva(input) {
 
     if (tOld === tNew && hOld === hNew) {
         delete cambiosPendientes[key]; 
-        if(iTemp) iTemp.classList.remove('bg-yellow-100', 'text-yellow-900');
-        if(iHum) iHum.classList.remove('bg-yellow-100', 'text-yellow-900');
+        if(iTemp) iTemp.classList.remove('bg-yellow-100', 'dark:bg-yellow-900/40', 'text-yellow-900', 'dark:text-yellow-200');
+        if(iHum) iHum.classList.remove('bg-yellow-100', 'dark:bg-yellow-900/40', 'text-yellow-900', 'dark:text-yellow-200');
     } else {
         input.classList.add('bg-yellow-100', 'dark:bg-yellow-900/40', 'text-yellow-900', 'dark:text-yellow-200');
     }
@@ -642,8 +650,8 @@ async function guardarCambiosMasivos() {
         if (response.status === 'success') {
             cambiosPendientes = {};
             actualizarPanelMasivo();
-            document.getElementById('btn-toggle-edicion').click(); // Salir de modo edición
-            document.getElementById('btn-generar-reporte').click(); // Recargar
+            document.getElementById('btn-toggle-edicion').click(); 
+            document.getElementById('btn-generar-reporte').click(); 
         } else alert("Error: " + response.message);
     } catch (e) { alert("Fallo de red."); } 
     finally { btn.disabled = false; btn.innerHTML = '<i class="ph ph-cloud-arrow-up text-xl"></i> Sincronizar'; }
