@@ -145,9 +145,15 @@
            <span id="rev-txt-hr" class="flex items-center gap-1 font-medium"></span>
         </div>
         
-        <button id="btn-toggle-edicion" class="w-full sm:w-auto bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-800 dark:text-white border border-gray-300 dark:border-gray-600 font-bold py-2 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-sm">
-            <i class="ph ph-pencil-simple text-lg"></i> <span id="txt-btn-edicion">Activar Edición</span>
-        </button>
+        <div class="flex gap-2 w-full sm:w-auto">
+            <button id="btn-ejecutar-masivo" onclick="guardarCambiosMasivos()" class="hidden flex-1 sm:flex-none bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 sm:px-4 rounded-xl transition-all items-center justify-center gap-2 shadow-sm text-xs sm:text-sm">
+                <i class="ph ph-cloud-arrow-up text-lg"></i> <span id="txt-btn-guardar-masivo">Guardar (0)</span>
+            </button>
+
+            <button id="btn-toggle-edicion" class="flex-1 sm:flex-none bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-800 dark:text-white border border-gray-300 dark:border-gray-600 font-bold py-2 px-3 sm:px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-xs sm:text-sm">
+                <i class="ph ph-pencil-simple text-lg"></i> <span id="txt-btn-edicion">Activar Edición</span>
+            </button>
+        </div>
       </div>
 
       <div id="tabla-container" class="overflow-x-auto overflow-y-auto max-h-[60vh] sm:max-h-[65vh] rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hidden relative">
