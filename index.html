@@ -108,48 +108,60 @@
       </form>
     </div>
 
-    <div id="vista-revision" class="p-4 sm:p-6 md:p-8 hidden">
+   <div id="vista-revision" class="p-3 sm:p-6 md:p-8 hidden flex-col h-full">
       
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700">
-        <div>
-          <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Cámara</label>
-          <select id="rev-camara" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 p-3 sm:p-4 bg-gray-50 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700">
+        <div class="col-span-2 sm:col-span-1">
+          <label class="block text-[10px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Cámara</label>
+          <select id="rev-camara" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm">
             <option value="">Cargando...</option>
           </select>
         </div>
-        <div>
-          <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Mes</label>
-          <select id="rev-mes" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm">
+        <div class="col-span-1">
+          <label class="block text-[10px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Mes</label>
+          <select id="rev-mes" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm">
             <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
             <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
             <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
             <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
           </select>
         </div>
-        <div>
-          <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Año</label>
-          <select id="rev-anio" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm">
+        <div class="col-span-1">
+          <label class="block text-[10px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Año</label>
+          <select id="rev-anio" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm">
             <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
           </select>
         </div>
-        <div class="sm:col-span-3">
-          <button type="button" id="btn-generar-reporte" class="w-full bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 text-white font-bold py-3 rounded-lg transition-colors flex justify-center items-center gap-2">
-            <i class="ph ph-magnifying-glass text-xl"></i> Generar Matriz de Temperaturas
+        <div class="col-span-2 sm:col-span-1 flex items-end">
+          <button type="button" id="btn-generar-reporte" class="w-full bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 text-white font-bold py-2 rounded-lg transition-colors flex justify-center items-center gap-2 text-sm h-[38px]">
+            <i class="ph ph-magnifying-glass text-lg"></i> Consultar
           </button>
         </div>
       </div>
 
-      <div id="tabla-container" class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hidden">
-        <table class="w-full text-sm text-left whitespace-nowrap">
-          <thead class="text-xs text-gray-700 uppercase bg-gray-100 dark:bg-gray-700 dark:text-gray-300" id="tabla-head">
+      <div id="rev-herramientas" class="hidden flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 transition-all">
+        <div id="rev-banner-limites" class="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-xs sm:text-sm p-2 sm:p-3 rounded-xl border border-blue-200 dark:border-blue-800 flex flex-wrap gap-2 shadow-inner w-full sm:w-auto">
+           <span id="rev-txt-temp" class="flex items-center gap-1"></span>
+           <span id="rev-txt-hr" class="flex items-center gap-1 font-medium"></span>
+        </div>
+        
+        <button id="btn-toggle-edicion" class="w-full sm:w-auto bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-800 dark:text-white border border-gray-300 dark:border-gray-600 font-bold py-2 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-sm">
+            <i class="ph ph-pencil-simple text-lg"></i> <span id="txt-btn-edicion">Activar Edición</span>
+        </button>
+      </div>
+
+      <div id="tabla-container" class="overflow-x-auto overflow-y-auto max-h-[60vh] sm:max-h-[65vh] rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hidden relative">
+        <table class="w-full text-xs sm:text-sm text-left whitespace-nowrap border-collapse">
+          <thead class="text-[10px] sm:text-xs text-gray-700 uppercase bg-gray-100 dark:bg-gray-700 dark:text-gray-300 relative z-20" id="tabla-head">
             </thead>
-          <tbody id="tabla-body" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody id="tabla-body" class="bg-white dark:bg-gray-800">
             </tbody>
         </table>
       </div>
 
       <div id="tabla-mensaje" class="text-center py-10 text-gray-500 dark:text-gray-400 hidden">
         </div>
+
     </div>
 
     <div id="panel-guardado-masivo" class="fixed bottom-0 left-0 right-0 bg-blue-900 text-white p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.3)] transform translate-y-full transition-transform duration-300 z-50 flex justify-between items-center sm:px-10 border-t border-blue-700">
