@@ -45,21 +45,17 @@ window.addEventListener('message', (event) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Configurar UI inicial
     configurarFechaInicial();
     
-    // 2. Rehidratación Optimista (Carga visual ultrarrápida)
     const savedUser = sessionStorage.getItem('moduloUser');
     if (savedUser) {
         AppState.user = JSON.parse(savedUser);
         actualizarUIUsuario();
-        cargarCamaras(); // Intento de carga anticipada
+        cargarCamaras(); 
     }
     
-    // 3. Handshake: Exigir al Padre la VERDAD ABSOLUTA
     window.parent.postMessage({ type: 'MODULO_LISTO' }, '*');
     
-    // 4. Perro Guardián (Timeout)
     setTimeout(() => {
         if (!AppState.isSessionVerified) {
             document.getElementById('txt-usuario-activo').innerHTML = '<i class="ph ph-warning text-red-500"></i> Esperando autorización...';
@@ -118,9 +114,8 @@ async function cargarCamaras() {
 // 4. REGISTRO DIARIO Y TRIGGERS (VISTA 1)
 // ==========================================
 
-// ACTIVADOR: Cambio de Cámara O de Fecha
 document.getElementById('camara-select').addEventListener('change', manejarCambioCamara);
-document.getElementById('val-fecha').addEventListener('change', verificarTurnosDisponibles); // ¡TRIGGER CORREGIDO!
+document.getElementById('val-fecha').addEventListener('change', verificarTurnosDisponibles); 
 
 function manejarCambioCamara(e) {
     const camara = AppState.camaras.find(c => c.id == e.target.value);
@@ -204,7 +199,6 @@ function seleccionarBotonTurno(turno, btnActivado) {
     btnActivado.querySelector('i').className = 'ph ph-check-circle-fill text-2xl text-blue-600 dark:text-blue-400';
 }
 
-// Evaluación Reactiva de Inputs
 document.getElementById('val-temp').addEventListener('input', evaluarParametrosEnVivo);
 document.getElementById('val-humedad').addEventListener('input', evaluarParametrosEnVivo);
 
@@ -272,7 +266,7 @@ document.getElementById('form-lectura-camara').addEventListener('submit', async 
             btn.innerHTML = '<i class="ph ph-check-circle text-xl"></i> ¡Exito!';
             setTimeout(() => {
                 document.getElementById('form-lectura-camara').reset();
-                configurarFechaInicial(); // Restaurar solo la fecha actual
+                configurarFechaInicial(); 
                 document.getElementById('panel-estado').classList.add('hidden');
                 verificarTurnosDisponibles();
                 btn.disabled = false; btn.innerHTML = '<i class="ph ph-floppy-disk text-2xl"></i> Registrar Lectura';
@@ -318,13 +312,11 @@ document.getElementById('rev-camara').addEventListener('change', (e) => {
     const tools = document.getElementById('rev-herramientas');
     if (!c) return tools.classList.add('hidden');
     
-    document.getElementById('rev-txt-temp').innerHTML = `<i class="ph ph-thermometer-simple text-blue-600"></i> ${c.minTemp}°C a ${c.maxTemp}°C`;
-    document.getElementById('rev-txt-hr').innerHTML = (c.minHr) ? `<i class="ph ph-drop text-blue-600"></i> ${(c.minHr<=1?c.minHr*100:c.minHr)}% a ${(c.maxHr<=1?c.maxHr*100:c.maxHr)}%` : '';
+    document.getElementById('rev-txt-temp').innerHTML = `<i class="ph ph-thermometer-simple text-blue-600 dark:text-blue-400"></i> ${c.minTemp}°C a ${c.maxTemp}°C`;
+    document.getElementById('rev-txt-hr').innerHTML = (c.minHr) ? `<i class="ph ph-drop text-blue-600 dark:text-blue-400"></i> ${(c.minHr<=1?c.minHr*100:c.minHr)}% a ${(c.maxHr<=1?c.maxHr*100:c.maxHr)}%` : '';
     tools.classList.remove('hidden'); tools.classList.add('flex');
 });
 
-
-// GENERAR MATRIZ
 document.getElementById('btn-generar-reporte').addEventListener('click', async () => {
     const idC = document.getElementById('rev-camara').value;
     const m = document.getElementById('rev-mes').value;
@@ -364,7 +356,7 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
 });
 
 // ==========================================
-// 6. MOTOR DE MATRIZ Y EDICIÓN MASIVA
+// 6. MOTOR DE MATRIZ Y EDICIÓN MASIVA (CON FIX DARK MODE)
 // ==========================================
 document.getElementById('btn-toggle-edicion').addEventListener('click', () => {
     const rols = ['JEFE', 'ADMINISTRADOR', 'SUPERVISOR'];
@@ -389,12 +381,18 @@ function dibujarMatrizUI() {
     const data = AppState.revisionData, { anio, mes, usaHumedad } = AppState.configRev;
     const diasEnMes = new Date(anio, mes, 0).getDate();
     
-    let head = `<tr><th rowspan="2" class="sticky top-0 left-0 z-30 px-4 py-3 bg-blue-50 text-blue-800 w-16 text-center border-b border-r shadow-sm">DÍA</th>`;
-    TODOS_LOS_TURNOS.forEach(t => head += `<th colspan="${usaHumedad?2:1}" class="sticky top-0 z-20 px-4 py-2 text-center border-b border-r bg-gray-100 shadow-sm">${t}</th>`);
+    // CORRECCIÓN DARK MODE: Cabeceras 
+    let head = `<tr><th rowspan="2" class="sticky top-0 left-0 z-30 px-4 py-3 bg-blue-50 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 w-16 text-center border-b border-r border-gray-200 dark:border-gray-700 shadow-sm">DÍA</th>`;
+    TODOS_LOS_TURNOS.forEach(t => head += `<th colspan="${usaHumedad?2:1}" class="sticky top-0 z-20 px-4 py-2 text-center border-b border-r border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 shadow-sm">${t}</th>`);
     head += '</tr>';
     
     if (usaHumedad) {
-        head += `<tr>`; TODOS_LOS_TURNOS.forEach(() => { head += `<th class="sticky top-[36px] z-20 px-2 py-1 text-center text-[11px] font-bold border-b border-r bg-gray-50 text-gray-500">°C</th><th class="sticky top-[36px] z-20 px-2 py-1 text-center text-[11px] font-bold border-b border-r bg-gray-50 text-blue-600">%HR</th>`; }); head += '</tr>';
+        head += `<tr>`; 
+        TODOS_LOS_TURNOS.forEach(() => { 
+            head += `<th class="sticky top-[36px] z-20 px-2 py-1 text-center text-[11px] font-bold border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 text-gray-500 dark:text-gray-400">°C</th>
+                     <th class="sticky top-[36px] z-20 px-2 py-1 text-center text-[11px] font-bold border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 text-blue-600 dark:text-blue-400">%HR</th>`; 
+        }); 
+        head += '</tr>';
     }
     document.getElementById('tabla-head').innerHTML = head;
 
@@ -408,22 +406,31 @@ function dibujarMatrizUI() {
         const fDate = new Date(anio, mes - 1, d); 
         const inactivo = (fDate.getDay() === 0 || fDate.getDay() === 6) || feriados.includes(`${d.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}`);
 
-        body += `<tr class="${inactivo?'bg-gray-100 opacity-90':'hover:bg-gray-50'}">
-                 <td class="sticky left-0 z-10 px-4 py-2 text-center border-r border-b shadow-sm ${inactivo?'bg-gray-200':'bg-gray-50'}"><span class="block text-[10px] uppercase font-bold text-gray-500">${diasA[fDate.getDay()]}</span><span class="font-bold text-gray-900">${d}</span></td>`;
+        // CORRECCIÓN DARK MODE: Filas y Columnas base
+        const trClass = inactivo ? 'bg-gray-100 dark:bg-gray-800/40 opacity-90' : 'hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors';
+        const tdDiaClass = `sticky left-0 z-10 px-4 py-2 text-center border-r border-b border-gray-200 dark:border-gray-700 shadow-sm ${inactivo ? 'bg-gray-200 dark:bg-gray-800/80' : 'bg-gray-50 dark:bg-gray-800'}`;
+        const colorAbrev = inactivo ? 'text-gray-400 dark:text-gray-500' : 'text-gray-500 dark:text-gray-400';
+        const colorNum = inactivo ? 'text-gray-500 dark:text-gray-500' : 'text-gray-900 dark:text-gray-200';
+
+        body += `<tr class="${trClass}">
+                 <td class="${tdDiaClass}"><span class="block text-[10px] uppercase font-bold ${colorAbrev}">${diasA[fDate.getDay()]}</span><span class="font-bold ${colorNum}">${d}</span></td>`;
         
         TODOS_LOS_TURNOS.forEach(t => {
             const reg = data.find(r => r.dia === d && r.turno === t);
             const fechaStr = `${d.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}/${anio}`;
-            
+            const cClassBase = "px-2 py-2 text-center border-r border-b border-gray-200 dark:border-gray-700 min-w-[70px]";
+
             if (reg) {
-                const desv = reg.estado === 'DESVIACION', bg = desv ? 'bg-red-50' : '';
-                const obs = desv ? `<span class="block text-[9px] text-red-500 font-bold mt-1" title="Obs: ${reg.incidencia}">Ver Obs</span>` : '';
-                body += `<td class="px-2 py-2 text-center border-r border-b min-w-[70px] ${bg}">${crearInput(reg.temp, fechaStr, t, 'temp', puedeEditar, desv)} ${obs}</td>`;
-                if(usaHumedad) body += `<td class="px-2 py-2 text-center border-r border-b min-w-[70px] ${bg}">${crearInput(reg.humedad||'', fechaStr, t, 'hum', puedeEditar, desv)}</td>`;
+                const desv = reg.estado === 'DESVIACION';
+                const bg = desv ? 'bg-red-50 dark:bg-red-900/20' : '';
+                const obs = desv ? `<span class="block text-[9px] text-red-500 dark:text-red-400 font-bold mt-1 cursor-help" title="Obs: ${reg.incidencia}">Ver Obs</span>` : '';
+                
+                body += `<td class="${cClassBase} ${bg}">${crearInput(reg.temp, fechaStr, t, 'temp', puedeEditar, desv)} ${obs}</td>`;
+                if(usaHumedad) body += `<td class="${cClassBase} ${bg}">${crearInput(reg.humedad||'', fechaStr, t, 'hum', puedeEditar, desv)}</td>`;
             } else {
-                const bg = inactivo ? 'bg-gray-100/50' : '';
-                body += `<td class="px-2 py-2 text-center border-r border-b min-w-[70px] ${bg}">${crearInput('', fechaStr, t, 'temp', puedeEditar, false)}</td>`;
-                if(usaHumedad) body += `<td class="px-2 py-2 text-center border-r border-b min-w-[70px] ${bg}">${crearInput('', fechaStr, t, 'hum', puedeEditar, false)}</td>`;
+                const bg = inactivo ? 'bg-gray-100/50 dark:bg-gray-800/30' : '';
+                body += `<td class="${cClassBase} ${bg}">${crearInput('', fechaStr, t, 'temp', puedeEditar, false)}</td>`;
+                if(usaHumedad) body += `<td class="${cClassBase} ${bg}">${crearInput('', fechaStr, t, 'hum', puedeEditar, false)}</td>`;
             }
         });
         body += '</tr>';
@@ -433,11 +440,13 @@ function dibujarMatrizUI() {
 
 function crearInput(v, f, t, tipo, puedeEditar, desv) {
     if (!AppState.modoEdicion || !puedeEditar) {
-        let style = v === '' ? 'text-gray-300' : (desv ? 'text-red-600 font-bold' : 'text-gray-800 font-semibold');
-        if(tipo === 'hum' && v !== '') style = 'text-blue-600 font-medium';
+        // CORRECCIÓN DARK MODE: Textos estáticos
+        let style = v === '' ? 'text-gray-300 dark:text-gray-600' : (desv ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-800 dark:text-gray-300 font-semibold');
+        if(tipo === 'hum' && v !== '') style = 'text-blue-600 dark:text-blue-400 font-medium';
         return `<span class="text-sm ${style}">${v === '' ? '-' : v + (tipo === 'temp' ? '°' : '%')}</span>`;
     }
-    return `<input type="number" step="0.1" value="${v}" data-old="${v}" data-fecha="${f}" data-turno="${t}" data-tipo="${tipo}" placeholder="${tipo === 'temp' ? '°' : '%'}" class="w-full bg-transparent text-center focus:bg-blue-50 focus:ring-2 rounded font-bold text-sm" onblur="validarEdicionUI(this)">`;
+    // CORRECCIÓN DARK MODE: Inputs
+    return `<input type="number" step="0.1" value="${v}" data-old="${v}" data-fecha="${f}" data-turno="${t}" data-tipo="${tipo}" placeholder="${tipo === 'temp' ? '°' : '%'}" class="w-full bg-transparent text-center focus:bg-blue-50 dark:focus:bg-blue-900/40 focus:ring-2 dark:focus:ring-blue-500 rounded font-bold text-sm text-gray-900 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-600 transition-colors outline-none" onblur="validarEdicionUI(this)">`;
 }
 
 // Edición y Validaciones
@@ -459,7 +468,6 @@ async function validarEdicionUI(input) {
     }
 
     if (isDesv || (ov !== '' && nv !== ov)) {
-        // Implementación simplificada del Prompt (puedes reemplazar por el Modal Custom si lo prefieres para UI/UX)
         inc = prompt(isDesv ? "Valores Fuera de Rango (HACCP). Ingrese medida correctiva:" : (nv===""?"Eliminación de registro. Motivo:":"Modificación Histórica. Motivo:"));
         if (!inc || !inc.trim()) return input.value = cv; // Revert
     }
@@ -473,7 +481,12 @@ async function validarEdicionUI(input) {
     AppState.cambiosCart[key][tp] = nv;
     if (inc) AppState.cambiosCart[key].incidencia = inc;
 
+    // Colores de Edición Pendiente adaptados al Dark Mode
     input.classList.toggle('bg-yellow-100', input.value !== ov);
+    input.classList.toggle('dark:bg-yellow-900/40', input.value !== ov);
+    input.classList.toggle('text-yellow-900', input.value !== ov);
+    input.classList.toggle('dark:text-yellow-300', input.value !== ov);
+    
     actualizarPanelMasivo();
 }
 
@@ -514,7 +527,6 @@ function generarMoldeHACCP() {
     const anioText = document.getElementById('rev-anio').value;
     const { anio, mes, usaHumedad } = AppState.configRev; 
 
-    // Reglas Estáticas HACCP
     let formatCode = 'LGA-BPM-SAF01', version = '04', tituloMain = 'MANUAL DE BUENAS PRÁCTICAS DE MANUFACTURA', tituloSub = 'REGISTRO DE CONTROL DE TEMPERATURA DE CAMARAS';
     if (cName.includes('desposte')) { formatCode = 'LGA-BPM-SAF02'; } 
     else if (cName.includes('maduración') || cName.includes('maduracion')) { formatCode = 'LGA-BPM-F10'; version = '14'; } 
@@ -527,7 +539,7 @@ function generarMoldeHACCP() {
     document.getElementById('print-titulo-main').innerText = tituloMain;
     document.getElementById('print-titulo-sub').innerText = tituloSub;
     document.getElementById('print-version').innerText = version;
-    document.getElementById('print-fecha-rev').innerText = '08/2025'; // Estático según instrucción
+    document.getElementById('print-fecha-rev').innerText = '08/2025'; 
     document.getElementById('print-codigo').innerText = formatCode;
     document.getElementById('print-camara-nombre').innerText = camaraText;
     document.getElementById('print-mes-nombre').innerText = `${mesText} ${anioText}`;
@@ -547,9 +559,9 @@ function generarMoldeHACCP() {
         const fechaFila = new Date(anio, mes - 1, d); 
         const inactivo = (fechaFila.getDay() === 0 || fechaFila.getDay() === 6) || feriados.includes(`${d.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}`);
 
-        if(inactivo) continue; // OMITIR EN PAPEL
+        if(inactivo) continue; 
 
-        bodyH += `<tr><td class="border border-black p-1 font-bold">${diasA[fechaFila.getDay()]} ${d.toString().padStart(2, '0')}</td>`; // "Lun 30"
+        bodyH += `<tr><td class="border border-black p-1 font-bold">${diasA[fechaFila.getDay()]} ${d.toString().padStart(2, '0')}</td>`; 
         
         TODOS_LOS_TURNOS.forEach(t => {
             const reg = AppState.revisionData.find(r => r.dia === d && r.turno === t);
