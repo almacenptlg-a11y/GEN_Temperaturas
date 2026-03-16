@@ -375,7 +375,7 @@ document.getElementById('rev-camara').addEventListener('change', (e) => {
 
 // Evento: Activar/Desactivar Modo Edición
 document.getElementById('btn-toggle-edicion').addEventListener('click', () => {
-    if (!currentUser || (currentUser.rol.toUpperCase() !== 'JEFE' && currentUser.rol.toUpperCase() !== 'ADMINISTRADOR')) {
+    if (!currentUser || (currentUser.rol.toUpperCase() !== 'JEFE' && currentUser.rol.toUpperCase() !== 'ADMINISTRADOR' && currentUser.rol.toUpperCase() !== 'SUPERVISOR')) {
         return alert("Solo Jefes y Administradores pueden editar registros.");
     }
 
@@ -497,7 +497,7 @@ function dibujarTabla(data, config) {
     const FERIADOS_PERU = ['01/01', '01/05', '07/06', '29/06', '23/07', '28/07', '29/07','06/08', '30/08', '08/10', '01/11', '08/12', '09/12', '25/12'];
     const diasAbrev = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
-    const puedeEditar = currentUser && (currentUser.rol.toUpperCase() === 'JEFE' || currentUser.rol.toUpperCase() === 'ADMINISTRADOR');
+    const puedeEditar = currentUser && (currentUser.rol.toUpperCase() === 'JEFE' || currentUser.rol.toUpperCase() === 'ADMINISTRADOR' || currentUser.rol.toUpperCase() === 'SUPERVISOR');
 
     for (let d = 1; d <= diasEnMes; d++) {
         const fechaFila = new Date(config.anio, config.mes - 1, d); 
