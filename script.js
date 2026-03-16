@@ -345,7 +345,6 @@ function switchTab(tab) {
     }
 }
 
-
 // ==========================================
 // 5. DASHBOARD MATRIZ (REVISIÓN JEFATURA)
 // ==========================================
@@ -375,8 +374,10 @@ document.getElementById('rev-camara').addEventListener('change', (e) => {
 
 // Evento: Activar/Desactivar Modo Edición
 document.getElementById('btn-toggle-edicion').addEventListener('click', () => {
-    if (!currentUser || (currentUser.rol.toUpperCase() !== 'JEFE' && currentUser.rol.toUpperCase() !== 'ADMINISTRADOR' && currentUser.rol.toUpperCase() !== 'SUPERVISOR')) {
-        return alert("Solo Jefes y Administradores pueden editar registros.");
+    // NUEVO: Permisos ampliados incluyendo SUPERVISOR
+    const rolesPermitidos = ['JEFE', 'ADMINISTRADOR', 'SUPERVISOR'];
+    if (!currentUser || !rolesPermitidos.includes(currentUser.rol.toUpperCase())) {
+        return alert("Solo Jefes, Supervisores y Administradores pueden editar registros.");
     }
 
     if (Object.keys(cambiosPendientes).length > 0) {
@@ -403,11 +404,9 @@ document.getElementById('btn-toggle-edicion').addEventListener('click', () => {
     // Lógica para alternar la visibilidad de la tabla en meses vacíos
     if (ultimaDataRevision.length > 0 || configRevisionActual.mes) {
         if (modoEdicionActivo) {
-            // Mostrar la tabla obligatoriamente si entramos a editar
             document.getElementById('tabla-mensaje').classList.add('hidden');
             document.getElementById('tabla-container').classList.remove('hidden');
         } else if (ultimaDataRevision.length === 0) {
-            // Si salimos de edición y el mes estaba vacío, volver a ocultar la tabla
             document.getElementById('tabla-container').classList.add('hidden');
             document.getElementById('tabla-mensaje').classList.remove('hidden');
             document.getElementById('tabla-mensaje').innerHTML = '<i class="ph ph-folder-open text-5xl mb-3 text-gray-400"></i><br>Sin registros en este mes.';
@@ -447,7 +446,6 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
         if (response.status === 'success') {
             ultimaDataRevision = response.data; 
             
-            // Evaluamos si el mes está vacío y no estamos en edición
             if (ultimaDataRevision.length === 0 && !modoEdicionActivo) {
                 document.getElementById('tabla-mensaje').innerHTML = '<i class="ph ph-folder-open text-5xl mb-3 text-gray-400"></i><br>Sin registros en este mes.';
             } else {
@@ -471,7 +469,6 @@ function dibujarTabla(data, config) {
     const diasEnMes = new Date(config.anio, config.mes, 0).getDate();
     const usaHumedad = config.usaHumedad;
     
-    // CABECERA STICKY (Congelada)
     let headHTML = '';
     const classThTurno = "sticky top-0 z-20 px-2 sm:px-4 py-2 text-center border-b border-r border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 shadow-[0_1px_0_var(--tw-shadow-color)] shadow-gray-200 dark:shadow-gray-700";
     const classThDia = "sticky top-0 left-0 z-30 px-2 sm:px-4 py-3 bg-blue-50 dark:bg-blue-900 text-blue-800 dark:text-blue-300 w-12 sm:w-16 text-center border-b border-r border-gray-200 dark:border-gray-600 align-middle shadow-[1px_1px_0_var(--tw-shadow-color)] shadow-gray-200 dark:shadow-gray-700";
@@ -492,12 +489,13 @@ function dibujarTabla(data, config) {
     }
     thead.innerHTML = headHTML;
 
-    // CUERPO DE LA TABLA
     let bodyHTML = '';
     const FERIADOS_PERU = ['01/01', '01/05', '07/06', '29/06', '23/07', '28/07', '29/07','06/08', '30/08', '08/10', '01/11', '08/12', '09/12', '25/12'];
     const diasAbrev = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
-    const puedeEditar = currentUser && (currentUser.rol.toUpperCase() === 'JEFE' || currentUser.rol.toUpperCase() === 'ADMINISTRADOR' || currentUser.rol.toUpperCase() === 'SUPERVISOR');
+    // NUEVO: Permisos ampliados incluyendo SUPERVISOR para dibujar las celdas
+    const rolesPermitidos = ['JEFE', 'ADMINISTRADOR', 'SUPERVISOR'];
+    const puedeEditar = currentUser && rolesPermitidos.includes(currentUser.rol.toUpperCase());
 
     for (let d = 1; d <= diasEnMes; d++) {
         const fechaFila = new Date(config.anio, config.mes - 1, d); 
@@ -517,7 +515,6 @@ function dibujarTabla(data, config) {
         TODOS_LOS_TURNOS.forEach(turno => {
             const reg = data.find(r => r.dia === d && r.turno === turno);
             const fechaCelda = `${d.toString().padStart(2, '0')}/${config.mes.toString().padStart(2, '0')}/${config.anio}`;
-            
             const cellClass = `px-1 py-1 sm:px-2 sm:py-2 text-center border-r border-b border-gray-200 dark:border-gray-700 min-w-[50px] sm:min-w-[70px]`;
 
             if (reg) {
@@ -648,11 +645,18 @@ function validarCeldaMasiva(input) {
 
 function actualizarPanelMasivo() {
     const count = Object.keys(cambiosPendientes).length;
-    const panel = document.getElementById('panel-guardado-masivo');
-    document.getElementById('txt-cambios-count').innerText = count;
+    // NUEVA LÓGICA: Controla el botón superior en lugar del banner inferior
+    const btnGuardar = document.getElementById('btn-ejecutar-masivo');
+    const txtCount = document.getElementById('txt-btn-guardar-masivo');
 
-    if (count > 0) panel.classList.remove('translate-y-full');
-    else panel.classList.add('translate-y-full');
+    if (count > 0) {
+        btnGuardar.classList.remove('hidden');
+        btnGuardar.classList.add('flex');
+        txtCount.innerText = `Guardar (${count})`;
+    } else {
+        btnGuardar.classList.add('hidden');
+        btnGuardar.classList.remove('flex');
+    }
 }
 
 async function guardarCambiosMasivos() {
@@ -671,7 +675,9 @@ async function guardarCambiosMasivos() {
     };
 
     const btn = document.getElementById('btn-ejecutar-masivo');
-    btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i>';
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true; 
+    btn.innerHTML = '<i class="ph ph-spinner animate-spin text-lg"></i> <span>Guardando...</span>';
 
     try {
         const response = await apiFetch(payload);
@@ -682,5 +688,9 @@ async function guardarCambiosMasivos() {
             document.getElementById('btn-generar-reporte').click(); 
         } else alert("Error: " + response.message);
     } catch (e) { alert("Fallo de red."); } 
-    finally { btn.disabled = false; btn.innerHTML = '<i class="ph ph-cloud-arrow-up text-xl"></i> Sincronizar'; }
+    finally { 
+        btn.disabled = false; 
+        btn.innerHTML = originalHTML; 
+        actualizarPanelMasivo(); // Aseguramos que se actualice o se oculte
+    }
 }
