@@ -209,6 +209,93 @@
     </div>
   </div>
 
+<div id="formato-oficial-impresion" class="hidden bg-white text-black font-sans text-[11px] max-w-[900px] mx-auto p-4">
+      
+      <table class="w-full text-center border-collapse border border-gray-400 mb-4" style="border: 0.5px solid #ddd;">
+          <tr>
+              <td rowspan="4" class="w-[15%] p-1 align-middle border border-gray-400">
+                  <img src="https://lagenovesa.pe/wp-content/uploads//2021/12/logo_footer.png" alt="Logo" class="max-w-[120px] mx-auto">
+              </td>
+              <td colspan="3" class="font-bold text-[14px] p-2 border border-gray-400">MANUAL DE BUENAS PRÁCTICAS DE MANUFACTURA</td>
+          </tr>
+          <tr>
+              <td colspan="3" class="font-bold text-[14px] p-2 border border-gray-400">REGISTRO DE CONTROL DE TEMPERATURA DE CAMARAS</td>
+          </tr>
+          <tr>
+              <td class="w-[28%] text-[12px] border border-gray-400 p-1">Versión: <span id="print-version"></span></td>
+              <td class="w-[28%] text-[12px] border border-gray-400 p-1">Revisión: 08/2025</td>
+              <td class="w-[28%] text-[12px] border border-gray-400 p-1">Código: <span id="print-codigo"></span></td>
+          </tr>
+          <tr>
+              <td class="text-[12px] border border-gray-400 p-1">Elaborado por: Área de Calidad</td>
+              <td class="text-[12px] border border-gray-400 p-1">Revisado por: Sub Gerente</td>
+              <td class="text-[12px] border border-gray-400 p-1">Aprobado por: Gerencia General</td>
+          </tr>
+      </table>
+      
+      <h2 class="font-bold text-[20px] text-center text-[#333] mb-1 uppercase">CÁMARA: <span id="print-camara-nombre"></span></h2>
+      <h2 class="font-bold text-[20px] text-center text-[#333] mb-3 uppercase">MES: <span id="print-mes-nombre"></span></h2>
+
+      <table class="w-full mb-4 border-collapse border border-black text-center">
+          <thead class="bg-[#f4f4f4] font-bold border border-black" id="print-head-datos">
+              </thead>
+          <tbody id="print-body-datos" class="border border-black">
+              </tbody>
+      </table>
+
+      <h4 class="font-bold mb-1 uppercase text-[#333]">Incidencias y medidas correctivas:</h4>
+      <table class="w-full mb-6 border-collapse border border-black text-left">
+          <thead class="bg-[#f4f4f4] font-bold border border-black text-center">
+              <tr>
+                  <th class="border border-black p-1 w-24">Fecha</th>
+                  <th class="border border-black p-1">Incidencia</th>
+                  <th class="border border-black p-1">Medida correctiva</th>
+              </tr>
+          </thead>
+          <tbody id="print-body-incidencias">
+              </tbody>
+      </table>
+
+      <div class="text-center mt-5 text-[10px] text-[#666]">
+          <h4 class="font-bold text-left text-black text-[12px] mb-1">Rangos e indicaciones de referencia:</h4>
+          <table class="w-full border-collapse border border-black text-center text-black">
+              <thead class="bg-[#f4f4f4] font-bold border border-black">
+                  <tr>
+                      <th class="border border-black p-1">Tipo camara / ambiente</th>
+                      <th class="border border-black p-1">°C mínimo</th>
+                      <th class="border border-black p-1">°C máximo</th>
+                      <th class="border border-black p-1">Humedad relativa</th>
+                      <th class="border border-black p-1">Indicaciones de contingencia</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td class="border border-black p-1">CAMARA CONGELAMIENTO</td><td class="border border-black p-1">-23 °C</td><td class="border border-black p-1">-12 °C</td><td class="border border-black p-1"></td>
+                      <td rowspan="4" class="border border-black p-2 text-left w-[50%]">
+                          Ante una desviación de la temperatura: evitar aperturas e informar al jefe de mantenimiento, el producto se colocará en cuarentena en otra cámara. Se someterá el material afectado a evaluación microbiológica, de superar los limites se separará para residuo orgánico. Si los resultados son los deseados se establecerá el control de temperatura.
+                      </td>
+                  </tr>
+                  <tr><td class="border border-black p-1">CAMARA REFRIGERACION</td><td class="border border-black p-1">0 °C</td><td class="border border-black p-1">5 °C</td><td class="border border-black p-1"></td></tr>
+                  <tr><td class="border border-black p-1">AMBIENTE REFRIGERADO</td><td class="border border-black p-1">5 °C</td><td class="border border-black p-1">10 °C</td><td class="border border-black p-1">80% / 95%</td></tr>
+                  <tr id="print-row-maduracion"><td class="border border-black p-1">CAMARA DE MADURACIÓN</td><td class="border border-black p-1">10 °C</td><td class="border border-black p-1">15 °C</td><td class="border border-black p-1">70% / 80%</td></tr>
+              </tbody>
+          </table>
+      </div>
+
+      <table class="w-full border-none font-bold mt-6">
+          <tr>
+              <td class="text-right border-none w-full flex flex-col items-end">
+                  <div class="w-48 border-b border-black mb-1 h-12"></div> Reportado por: <span id="print-responsable" class="font-normal inline-block w-48 text-center"></span>
+              </td>
+          </tr>
+          <tr>
+              <td class="text-center text-[12px] border-none pt-4 font-normal">
+                  <em>La Genovesa Agroindustrias S.A. RUC: 20119873542 <br> Parque industrial Mz. I Lt. 10 Tacna - Tacna - Perú</em>
+              </td>
+          </tr>
+      </table>
+  </div>
+  
   <script src="script.js"></script>
 </body>
 </html>
