@@ -7,6 +7,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbw9DjZJw8DelWMQQKvUxGhj
 const TODOS_LOS_TURNOS = ['07:30', '09:30', '11:30', '13:30', '15:30', '17:30'];
 let currentUser = null;
 let camarasDisponibles = [];
+let cambiosPendientes = {};
 
 
 // ==========================================
@@ -526,6 +527,7 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
     mensaje.innerHTML = '<i class="ph ph-spinner animate-spin text-4xl mb-3 text-blue-500"></i><br><span class="font-bold">Procesando Matriz HACCP...</span>';
 
     try {
+        cambiosPendientes = {}; actualizarPanelMasivo();
         const response = await apiFetch({
             action: 'getRegistrosRevision',
             idCamara: idCamara,
@@ -620,54 +622,41 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
                 // 4. Dibujar las celdas de Temperaturas
                 TODOS_LOS_TURNOS.forEach(turno => {
                     const reg = data.find(r => r.dia === d && r.turno === turno);
-                    
+                    const fechaCelda = `${d.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}/${anio}`;
+                    const puedeEditar = currentUser && (currentUser.rol.toUpperCase() === 'JEFE' || currentUser.rol.toUpperCase() === 'ADMINISTRADOR');
+
                     if (reg) {
                         const isDesviacion = reg.estado === 'DESVIACION';
                         const textColor = isDesviacion ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-800 dark:text-gray-200 font-semibold';
                         const bgWarning = isDesviacion ? 'bg-red-50 dark:bg-red-900/10' : '';
                         const tooltip = `Registrado por: ${reg.usuario}\nObs: ${reg.incidencia || 'Ninguna'}`;
-                        const obsSpan = isDesviacion ? '<span class="block text-[10px] text-red-500 font-normal">Ver Obs.</span>' : '';
-                        
-                        // Validar si el usuario tiene permisos para editar
-                        const puedeEditar = currentUser && (currentUser.rol.toUpperCase() === 'JEFE' || currentUser.rol.toUpperCase() === 'ADMINISTRADOR');
-                        
-                        // Añadir evento click e indicadores visuales (borde azul al pasar el mouse)
-                        const accionClick = puedeEditar ? `onclick="abrirModalEdicion('${reg.id}', '${reg.fecha}', '${reg.turno}', ${reg.temp}, ${reg.humedad || "''"}, '${(reg.incidencia || '').replace(/'/g, "\\'")}')"` : '';
-                        const cursorClass = puedeEditar ? 'cursor-pointer hover:ring-2 hover:ring-inset hover:ring-blue-400 dark:hover:ring-blue-500 transition-all' : 'cursor-help';
+                        const obsSpan = isDesviacion ? '<span class="block text-[10px] text-red-500 font-normal mt-1">Ver Obs.</span>' : '';
 
                         if (usaHumedad) {
-                            bodyHTML += `<td ${accionClick} class="px-2 py-2 text-center border-r border-gray-200 dark:border-gray-700 ${cursorClass} ${textColor} ${bgWarning}" title="${tooltip}">
-                                            ${reg.temp}° ${obsSpan}
+                            bodyHTML += `<td class="px-1 py-1 text-center border-r border-gray-200 dark:border-gray-700 ${bgWarning}" title="${tooltip}">
+                                            ${generarInputCelda(reg.temp, fechaCelda, turno, 'temp', puedeEditar)} ${obsSpan}
                                          </td>`;
-                            bodyHTML += `<td ${accionClick} class="px-2 py-2 text-center border-r border-gray-200 dark:border-gray-700 ${cursorClass} text-blue-600 dark:text-blue-400 font-medium ${bgWarning}" title="${tooltip}">
-                                            ${reg.humedad ? reg.humedad + '%' : '-'}
+                            bodyHTML += `<td class="px-1 py-1 text-center border-r border-gray-200 dark:border-gray-700 ${bgWarning}" title="${tooltip}">
+                                            ${generarInputCelda(reg.humedad || '', fechaCelda, turno, 'hum', puedeEditar)}
                                          </td>`;
                         } else {
-                            bodyHTML += `<td ${accionClick} class="px-4 py-2 text-center border-r border-gray-200 dark:border-gray-700 ${cursorClass} ${textColor} ${bgWarning}" title="${tooltip}">
-                                            ${reg.temp}° ${obsSpan}
+                            bodyHTML += `<td class="px-1 py-1 text-center border-r border-gray-200 dark:border-gray-700 ${bgWarning}" title="${tooltip}">
+                                            ${generarInputCelda(reg.temp, fechaCelda, turno, 'temp', puedeEditar)} ${obsSpan}
                                          </td>`;
                         }
                     } else {
-                        // Celdas Vacías: Ahora son botones para Crear si eres Jefe
-                        const fechaCelda = `${d.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}/${anio}`;
-                        
-                        // Validar si el usuario tiene permisos para editar/crear
-                        const puedeEditar = currentUser && (currentUser.rol.toUpperCase() === 'JEFE' || currentUser.rol.toUpperCase() === 'ADMINISTRADOR');
-                        
-                        // Si puede editar, al pasar el mouse se pone azul simulando un botón "+"
-                        const accionVaciaClick = puedeEditar ? `onclick="abrirModalEdicion('', '${fechaCelda}', '${turno}', '', '', '')"` : '';
-                        const cursorVaciaClass = puedeEditar ? 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:text-blue-600 dark:hover:text-blue-400 hover:font-bold transition-all title="Clic para completar turno"' : 'cursor-not-allowed';
-                        
-                        const claseVaciaFinal = `text-center border-r border-gray-200 dark:border-gray-700 ${cursorVaciaClass} ${esInactivo ? 'text-gray-300 dark:text-gray-600' : 'text-gray-300 dark:text-gray-500'}`;
+                        // Celdas Vacías
+                        const celdaVaciaClass = `text-center border-r border-gray-200 dark:border-gray-700 ${esInactivo ? 'bg-gray-100 dark:bg-gray-800' : ''}`;
                         
                         if (usaHumedad) {
-                            bodyHTML += `<td ${accionVaciaClick} class="px-2 py-2 ${claseVaciaFinal}">-</td>`;
-                            bodyHTML += `<td ${accionVaciaClick} class="px-2 py-2 ${claseVaciaFinal}">-</td>`;
+                            bodyHTML += `<td class="px-1 py-1 ${celdaVaciaClass}">${generarInputCelda('', fechaCelda, turno, 'temp', puedeEditar)}</td>`;
+                            bodyHTML += `<td class="px-1 py-1 ${celdaVaciaClass}">${generarInputCelda('', fechaCelda, turno, 'hum', puedeEditar)}</td>`;
                         } else {
-                            bodyHTML += `<td ${accionVaciaClick} class="px-4 py-2 ${claseVaciaFinal}">-</td>`;
+                            bodyHTML += `<td class="px-1 py-1 ${celdaVaciaClass}">${generarInputCelda('', fechaCelda, turno, 'temp', puedeEditar)}</td>`;
                         }
                     }
                 });
+               
                 bodyHTML += '</tr>';
             }
             tbody.innerHTML = bodyHTML;
@@ -688,107 +677,139 @@ function restaurarBotonReporte(btn, htmlOriginal) {
 }
 
 // ==========================================
-// 8. LÓGICA DE EDICIÓN Y CREACIÓN (MODAL)
+// 8. LÓGICA DE EDICIÓN MASIVA (TIPO EXCEL)
 // ==========================================
 
-function abrirModalEdicion(id, fecha, turno, temp, hum, incidencia) {
-    const camaraId = document.getElementById('rev-camara').value;
-    const camaraSel = camarasDisponibles.find(c => c.id.toString() === camaraId.toString());
-    const usaHumedad = camaraSel && camaraSel.minHr !== null && camaraSel.maxHr !== null && camaraSel.maxHr > 0;
-
-    const esNuevo = !id; // Si no hay ID, estamos creando
-
-    // Llenar datos de contexto
-    document.getElementById('edit-id').value = id || '';
-    document.getElementById('edit-fecha').value = fecha;
-    document.getElementById('edit-turno').value = turno;
-
-    document.getElementById('edit-info-contexto').innerHTML = `<strong>${camaraSel.nombre}</strong><br>Fecha: ${fecha} | Turno: ${turno} hrs`;
-    document.getElementById('edit-temp').value = temp || '';
+// Esta función dibuja un Input invisible dentro de la celda si el usuario tiene permisos
+function generarInputCelda(valor, fecha, turno, tipo, puedeEditar) {
+    if (!puedeEditar) return valor === '' ? '-' : `${valor}${tipo === 'temp' ? '°' : '%'}`;
     
-    // UI Dinámica (Si crea o edita)
-    const titulo = document.getElementById('modal-titulo');
-    const btnText = document.getElementById('modal-btn-text');
-    const inputIncidencia = document.getElementById('edit-incidencia');
+    // Si tiene permisos, devolvemos un input que se camufla con el fondo
+    const placeholder = tipo === 'temp' ? '°C' : '%HR';
+    const textColor = valor === '' ? 'text-gray-900 dark:text-gray-100' : '';
     
-    inputIncidencia.value = incidencia || '';
-
-    if (esNuevo) {
-        titulo.innerHTML = '<i class="ph ph-plus-circle text-2xl"></i> Completar Registro';
-        btnText.innerHTML = '<i class="ph ph-floppy-disk text-lg"></i> Registrar Faltante';
-        inputIncidencia.removeAttribute('required'); // Al crear no es obligatorio a menos que haya desviación
-    } else {
-        titulo.innerHTML = '<i class="ph ph-pencil-simple text-2xl"></i> Editar Registro';
-        btnText.innerHTML = '<i class="ph ph-floppy-disk text-lg"></i> Actualizar Valor';
-        inputIncidencia.setAttribute('required', 'true'); // Al editar exigimos justificación
-    }
-
-    // Lógica de Humedad
-    const boxHum = document.getElementById('edit-box-humedad');
-    const inputHum = document.getElementById('edit-humedad');
-    
-    if (usaHumedad) {
-        boxHum.classList.remove('hidden');
-        inputHum.value = hum || '';
-        inputHum.setAttribute('required', 'true');
-    } else {
-        boxHum.classList.add('hidden');
-        inputHum.value = '';
-        inputHum.removeAttribute('required');
-    }
-
-    // Mostrar Modal
-    document.getElementById('modal-edicion').classList.remove('hidden');
+    return `<input type="number" step="0.1" value="${valor}" data-old="${valor}" data-fecha="${fecha}" data-turno="${turno}" data-tipo="${tipo}" placeholder="${placeholder}"
+             class="w-full bg-transparent text-center focus:outline-none focus:bg-blue-50 dark:focus:bg-blue-900/50 focus:ring-2 focus:ring-blue-400 rounded transition-all font-bold cursor-text placeholder-gray-300 dark:placeholder-gray-600 ${textColor}" 
+             onblur="validarCeldaMasiva(this)">`;
 }
 
-function cerrarModalEdicion() {
-    document.getElementById('modal-edicion').classList.add('hidden');
-    document.getElementById('form-editar-lectura').reset();
+// Se ejecuta cada vez que el usuario teclea algo y quita el mouse (Evento Blur)
+function validarCeldaMasiva(input) {
+    const newVal = input.value.trim();
+    const oldVal = input.getAttribute('data-old').trim();
+    
+    // Si entró, miró y no cambió nada, salimos
+    if (newVal === oldVal) return;
+
+    const fecha = input.getAttribute('data-fecha');
+    const turno = input.getAttribute('data-turno');
+    const tipo = input.getAttribute('data-tipo');
+    const key = `${fecha}_${turno}`;
+
+    const idCamara = document.getElementById('rev-camara').value;
+    const camara = camarasDisponibles.find(c => c.id.toString() === idCamara.toString());
+
+    let isDesviacion = false;
+    let incidencia = "";
+
+    // 1. Validar HACCP (Si ingresó un valor)
+    if (newVal !== '') {
+        const num = parseFloat(newVal);
+        if (tipo === 'temp' && (num < camara.minTemp || num > camara.maxTemp)) isDesviacion = true;
+        if (tipo === 'hum' && camara.minHr) {
+             let minH = camara.minHr <= 1 ? camara.minHr * 100 : camara.minHr;
+             let maxH = camara.maxHr <= 1 ? camara.maxHr * 100 : camara.maxHr;
+             if (num < minH || num > maxH) isDesviacion = true;
+        }
+    }
+
+    // 2. Interceptor (SMART PROMPT): Si se edita algo viejo, o si el nuevo valor está desviado, exigir justificación
+    if (newVal !== '' && (oldVal !== '' || isDesviacion)) {
+        let razon = isDesviacion ? "⚠️ VALOR FUERA DE RANGO HACCP.\n" : "✏️ EDICIÓN DE REGISTRO HISTÓRICO.\n";
+        let motivo = prompt(`${razon}Ingrese obligatoriamente el motivo / corrección:`);
+        
+        if (!motivo || motivo.trim() === '') {
+            alert("No se puede aceptar el valor sin justificación. Restaurando...");
+            input.value = oldVal; // Revertir
+            return;
+        }
+        incidencia = motivo.trim();
+    }
+
+    // 3. Añadir al "Carrito de Cambios"
+    if (!cambiosPendientes[key]) {
+        // Inicializamos el objeto buscando el valor "hermano" (por si la cámara usa temp y hum)
+        const tr = input.closest('tr');
+        const inputTemp = tr.querySelector(`input[data-fecha="${fecha}"][data-turno="${turno}"][data-tipo="temp"]`);
+        const inputHum = tr.querySelector(`input[data-fecha="${fecha}"][data-turno="${turno}"][data-tipo="hum"]`);
+        
+        cambiosPendientes[key] = {
+            fecha: fecha,
+            turno: turno,
+            temp: inputTemp ? inputTemp.getAttribute('data-old') : '',
+            hum: inputHum ? inputHum.getAttribute('data-old') : '',
+            incidencia: incidencia
+        };
+    }
+
+    // 4. Actualizar el valor específico modificado
+    cambiosPendientes[key][tipo] = newVal;
+    if (incidencia) cambiosPendientes[key].incidencia = incidencia;
+
+    // 5. UX: Pintar celda de amarillo para indicar estado "Sucio"
+    input.classList.add('bg-yellow-100', 'dark:bg-yellow-900/40', 'text-yellow-900', 'dark:text-yellow-200');
+
+    // 6. Mostrar el panel flotante
+    actualizarPanelMasivo();
 }
 
-// Enviar Petición (Crear o Actualizar) al Backend
-document.getElementById('form-editar-lectura').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const btn = document.getElementById('btn-guardar-edicion');
-    const originalHTML = btn.innerHTML;
-    
-    const idRegistro = document.getElementById('edit-id').value;
-    const esNuevo = !idRegistro;
+function actualizarPanelMasivo() {
+    const count = Object.keys(cambiosPendientes).length;
+    const panel = document.getElementById('panel-guardado-masivo');
+    document.getElementById('txt-cambios-count').innerText = count;
 
-    // Payload dinámico: Si es nuevo va a 'registrarLecturaCamara', si existe va a 'actualizarLecturaCamara'
+    if (count > 0) panel.classList.remove('translate-y-full');
+    else panel.classList.add('translate-y-full');
+}
+
+async function guardarCambiosMasivos() {
+    const arrCambios = Object.values(cambiosPendientes);
+    if (arrCambios.length === 0) return;
+
+    // Validar que en los pares, la temperatura exista (no se puede mandar humedad sin temperatura)
+    for (let c of arrCambios) {
+        if (c.temp === '' && c.hum !== '') {
+            return alert(`Error: Ha ingresado Humedad pero falta Temperatura para el día ${c.fecha} turno ${c.turno}.`);
+        }
+    }
+
     const payload = {
-        action: esNuevo ? 'registrarLecturaCamara' : 'actualizarLecturaCamara',
+        action: 'guardarLecturasMasivas',
         idCamara: document.getElementById('rev-camara').value,
-        fecha: document.getElementById('edit-fecha').value,
-        turno: document.getElementById('edit-turno').value,
-        temperatura: document.getElementById('edit-temp').value,
-        humedad: document.getElementById('edit-humedad').value,
-        incidencia: document.getElementById('edit-incidencia').value,
-        userName: currentUser.nombre
+        userName: currentUser.nombre,
+        cambios: arrCambios
     };
 
-    if (!esNuevo) {
-        payload.id = idRegistro;
-    }
-
+    const btn = document.getElementById('btn-ejecutar-masivo');
+    const originalHTML = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
+    btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i>';
 
     try {
         const response = await apiFetch(payload);
         if (response.status === 'success') {
-            cerrarModalEdicion();
-            // Disparar clic en el botón generar reporte para recargar la tabla y ver el cambio
-            document.getElementById('btn-generar-reporte').click(); 
+            // Limpiar carrito, ocultar panel y recargar tabla
+            cambiosPendientes = {};
+            actualizarPanelMasivo();
+            document.getElementById('btn-generar-reporte').click();
         } else {
-            alert('Error al guardar: ' + response.message);
-            btn.disabled = false;
-            btn.innerHTML = originalHTML;
+            alert("Error del servidor: " + response.message);
         }
-    } catch (error) {
-        alert('Fallo de conexión.');
+    } catch (e) {
+        alert("Fallo de red al intentar guardar.");
+    } finally {
         btn.disabled = false;
         btn.innerHTML = originalHTML;
     }
-});
+}
+
