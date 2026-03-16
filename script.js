@@ -803,66 +803,80 @@ async function guardarCambiosMasivos() {
 }
 
 // ==========================================
-// 7. MÓDULO DE IMPRESIÓN (AUDITORÍA OFICIAL)
+// 7. MÓDULO DE IMPRESIÓN Y PDF (AUDITORÍA OFICIAL)
 // ==========================================
-function prepararImpresion() {
-    if(ultimaDataRevision.length === 0) return alert("Genere primero un reporte en pantalla para poder imprimirlo.");
+
+function generarMoldeHACCP() {
+    if(ultimaDataRevision.length === 0) {
+        alert("Genere primero un reporte en pantalla.");
+        return false;
+    }
+    // Cerrar edición para evitar imprimir "inputs"
     if(modoEdicionActivo) document.getElementById('btn-toggle-edicion').click(); 
 
     const selectCamara = document.getElementById('rev-camara');
     const camaraText = selectCamara.options[selectCamara.selectedIndex].text;
     const cName = camaraText.toLowerCase();
     
-    const mesText = document.getElementById('rev-mes').options[document.getElementById('rev-mes').selectedIndex].text;
+    const selectMes = document.getElementById('rev-mes');
+    const mesText = selectMes.options[selectMes.selectedIndex].text;
     const anioText = document.getElementById('rev-anio').value;
 
     const diasEnMes = new Date(configRevisionActual.anio, configRevisionActual.mes, 0).getDate();
-    const usaHumedad = configRevisionActual.usaHumedad; // Lo toma dinámicamente de la cámara
+    // VARIABLE GLOBAL: La estructura depende de si la cámara registra HR o no
+    const usaHumedad = configRevisionActual.usaHumedad; 
 
-    // 1. LÓGICA CAMALEÓNICA: Asignación dinámica de Códigos y Versiones
+    // 1. ASIGNACIÓN DE VARIABLES GLOBALES (Metadatos)
     let formatCode = 'LGA-BPM-SAF01';
-    let version = '4';
-    let showMaduracion = false;
+    let version = '04';
+    let fechaRev = 'agosto -25'; // Formato solicitado: "mmmm -yy"
+    let tituloMain = 'MANUAL DE BUENAS PRÁCTICAS DE MANUFACTURA';
+    let tituloSub = 'REGISTRO DE CONTROL DE TEMPERATURA DE CAMARAS';
 
     if (cName.includes('desposte')) {
         formatCode = 'LGA-BPM-SAF02';
-        version = '4';
+        version = '04';
+        fechaRev = 'agosto -25';
     } else if (cName.includes('maduración') || cName.includes('maduracion')) {
         formatCode = 'LGA-BPM-F10';
         version = '14';
-        showMaduracion = true;
+        fechaRev = 'agosto -25';
     } else if (cName.includes('empaque') || cName.includes('enfriamiento')) {
         formatCode = 'LGA-BPM-SAF03';
         version = '14';
-    } else if (cName.includes('pt') || cName.includes('congelación') || cName.includes('congelacion')) {
-        formatCode = 'LGA-BPM-F01';
-        version = '4';
-    } else {
-        // Fallback por defecto (carcasas, almacén mp, etc.)
-        formatCode = 'LGA-BPM-SAF01';
-        version = '4';
+        fechaRev = 'agosto -25';
+    } else if (cName.includes('pt') || cName.includes('congelación') || cName.includes('congelacion') || cName.includes('tunel')) {
+        formatCode = 'LGA-HACCP-F01';
+        version = '07';
+        fechaRev = 'agosto -25';
+        tituloMain = 'PLAN HCCP';
+        
+        if (cName.includes('congelación') || cName.includes('congelacion') || cName.includes('tunel')) {
+            tituloSub = 'REGISTRO DE CONTROL PCC: ALMACENAMIENTO CONGELADO';
+        } else if (cName.includes('pt')) {
+            tituloSub = 'REGISTRO DE CONTROL PCC: ALMACENAMIENTO REFRIGERADO';
+        } else {
+            tituloSub = 'REGISTRO DE CONTROL PCC';
+        }
     }
 
-    // 2. INYECTAR METADATOS EN EL MOLDE
+    // 2. INYECTAR METADATOS AL HTML
+    document.getElementById('print-titulo-main').innerText = tituloMain;
+    document.getElementById('print-titulo-sub').innerText = tituloSub;
     document.getElementById('print-version').innerText = version;
+    document.getElementById('print-fecha-rev').innerText = fechaRev;
     document.getElementById('print-codigo').innerText = formatCode;
     document.getElementById('print-camara-nombre').innerText = camaraText;
     document.getElementById('print-mes-nombre').innerText = `${mesText} ${anioText}`;
     document.getElementById('print-responsable').innerText = currentUser.nombre; 
 
-    // Mostrar u Ocultar fila de Maduración en el footer
-    const rowMaduracion = document.getElementById('print-row-maduracion');
-    if(showMaduracion) rowMaduracion.style.display = 'table-row';
-    else rowMaduracion.style.display = 'none';
-
-    // 3. ARMAR CABECERA DE LA TABLA EXACTA A LA ANTIGUA
+    // 3. ESTRUCTURA DE TABLA MENSUAL (Dinámica según Humedad)
     let headH = `<tr><th rowspan="2" class="border border-black p-1">↡ Fecha / Hora ↠</th>`;
     TODOS_LOS_TURNOS.forEach(t => {
         headH += `<th colspan="${usaHumedad ? 2 : 1}" class="border border-black p-1">${t} ${usaHumedad ? '' : 'h'}</th>`;
     });
     headH += `</tr>`;
     
-    // Si usa humedad, agregar la segunda fila de cabeceras (°C y %H)
     if(usaHumedad) {
         headH += `<tr>`;
         TODOS_LOS_TURNOS.forEach(() => {
@@ -872,7 +886,7 @@ function prepararImpresion() {
     }
     document.getElementById('print-head-datos').innerHTML = headH;
 
-    // 4. GENERAR CUERPO DE DATOS E INCIDENCIAS AUTOMÁTICAS
+    // 4. DATOS DE LA MATRIZ E INCIDENCIAS
     let bodyH = '';
     let bodyIncidencias = '';
 
@@ -886,7 +900,6 @@ function prepararImpresion() {
                 bodyH += `<td class="border border-black p-1">${reg.temp === '' ? '' : reg.temp}</td>`;
                 if(usaHumedad) bodyH += `<td class="border border-black p-1">${reg.humedad === '' ? '' : reg.humedad}</td>`;
 
-                // Construcción de matriz de incidencias
                 if (reg.incidencia && reg.incidencia.trim() !== '') {
                     bodyIncidencias += `
                         <tr>
@@ -910,6 +923,52 @@ function prepararImpresion() {
     document.getElementById('print-body-datos').innerHTML = bodyH;
     document.getElementById('print-body-incidencias').innerHTML = bodyIncidencias;
 
-    // 5. DISPARAR IMPRESIÓN DEL NAVEGADOR
-    setTimeout(() => { window.print(); }, 400);
+    return true; 
+}
+
+// ---------------------------------------------------
+// Acción 1: Imprimir Nativo (Ctrl+P)
+// ---------------------------------------------------
+function prepararImpresion() {
+    if(generarMoldeHACCP()) {
+        setTimeout(() => { window.print(); }, 400);
+    }
+}
+
+// ---------------------------------------------------
+// Acción 2: Generar y Descargar PDF Directo
+// ---------------------------------------------------
+function generarPDF() {
+    if(!generarMoldeHACCP()) return;
+
+    const btn = document.getElementById('btn-descargar-pdf');
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ph ph-spinner animate-spin text-lg"></i> <span class="hidden sm:inline">Procesando...</span>';
+
+    // Mostrar el elemento oculto para que html2canvas lo "fotografíe"
+    const element = document.getElementById('formato-oficial-impresion');
+    element.classList.remove('hidden'); 
+    element.style.display = 'block';
+
+    const selectCamara = document.getElementById('rev-camara');
+    const camaraText = selectCamara.options[selectCamara.selectedIndex].text;
+    const mesText = document.getElementById('rev-mes').options[document.getElementById('rev-mes').selectedIndex].text;
+    const filename = `Reporte_${camaraText.replace(/\s+/g, '_')}_${mesText}.pdf`;
+
+    const opt = {
+        margin:       0.5,
+        filename:     filename,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+        jsPDF:        { unit: 'cm', format: 'a4', orientation: 'portrait' } 
+    };
+
+    html2pdf().set(opt).from(element).save().then(() => {
+        // Volver a ocultar la interfaz de impresión
+        element.classList.add('hidden');
+        element.style.display = 'none';
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    });
 }
