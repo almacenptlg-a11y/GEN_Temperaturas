@@ -527,7 +527,9 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
     mensaje.innerHTML = '<i class="ph ph-spinner animate-spin text-4xl mb-3 text-blue-500"></i><br><span class="font-bold">Procesando Matriz HACCP...</span>';
 
     try {
-        cambiosPendientes = {}; actualizarPanelMasivo();
+        cambiosPendientes = {}; 
+        actualizarPanelMasivo();
+
         const response = await apiFetch({
             action: 'getRegistrosRevision',
             idCamara: idCamara,
@@ -555,7 +557,6 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
             let headHTML = '';
             
             if (usaHumedad) {
-                // Cabecera de 2 niveles (Turno -> °C | %HR)
                 headHTML += '<tr><th rowspan="2" class="px-4 py-3 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 w-16 text-center border-b border-r border-gray-200 dark:border-gray-600 align-middle">DÍA</th>';
                 TODOS_LOS_TURNOS.forEach(t => {
                     headHTML += `<th colspan="2" class="px-4 py-2 text-center border-b border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700">${t}</th>`;
@@ -567,7 +568,6 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
                 });
                 headHTML += '</tr>';
             } else {
-                // Cabecera de 1 nivel (Solo Temperaturas)
                 headHTML += '<tr><th class="px-4 py-3 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 w-16 text-center border-b border-r border-gray-200 dark:border-gray-600">DÍA</th>';
                 TODOS_LOS_TURNOS.forEach(t => {
                     headHTML += `<th class="px-4 py-3 text-center border-b border-r border-gray-200 dark:border-gray-600">${t}</th>`;
@@ -582,24 +582,20 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
             // =========================================================
             let bodyHTML = '';
             
-            // Feriados fijos de Perú (DD/MM)
             const FERIADOS_PERU = ['01/01', '01/05', '07/06', '29/06', '23/07', '28/07', '29/07','06/08', '30/08', '08/10', '01/11', '08/12', '09/12', '25/12'];
             const diasAbrev = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
             for (let d = 1; d <= diasEnMes; d++) {
                 
-                // 1. Cálculos de Fecha (Día de la semana y Feriados)
-                const fechaFila = new Date(anio, mes - 1, d); // mes - 1 porque JS cuenta los meses de 0 a 11
-                const indiceDia = fechaFila.getDay(); // 0 = Domingo, 6 = Sábado
+                const fechaFila = new Date(anio, mes - 1, d); 
+                const indiceDia = fechaFila.getDay(); 
                 const abrev = diasAbrev[indiceDia];
                 
                 const diaMesStr = `${d.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}`;
                 const esFeriado = FERIADOS_PERU.includes(diaMesStr);
                 const esFinSemana = (indiceDia === 0 || indiceDia === 6);
-                
-                const esInactivo = esFinSemana || esFeriado; // Si es inactivo, lo sombreamos
+                const esInactivo = esFinSemana || esFeriado;
 
-                // 2. Estilos Dinámicos para la Fila (Tachado suave / Sombreado)
                 let claseFila = "transition-colors ";
                 let claseCeldaCabecera = "px-4 py-2 text-center border-r border-gray-200 dark:border-gray-700 ";
 
@@ -611,7 +607,6 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
                     claseCeldaCabecera += "bg-gray-50 dark:bg-gray-800/50";
                 }
 
-                // 3. Dibujar la celda principal del DÍA
                 bodyHTML += `<tr class="${claseFila}">
                               <td class="${claseCeldaCabecera}">
                                   <span class="block text-[10px] uppercase tracking-wider ${esInactivo ? 'text-gray-400' : 'text-gray-500'} font-bold mb-0.5">${abrev}</span>
@@ -619,7 +614,6 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
                                   ${esFeriado ? `<span class="block text-[9px] text-red-500 font-bold mt-0.5">Feriado</span>` : ''}
                               </td>`;
                 
-                // 4. Dibujar las celdas de Temperaturas
                 TODOS_LOS_TURNOS.forEach(turno => {
                     const reg = data.find(r => r.dia === d && r.turno === turno);
                     const fechaCelda = `${d.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}/${anio}`;
@@ -627,7 +621,6 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
 
                     if (reg) {
                         const isDesviacion = reg.estado === 'DESVIACION';
-                        const textColor = isDesviacion ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-800 dark:text-gray-200 font-semibold';
                         const bgWarning = isDesviacion ? 'bg-red-50 dark:bg-red-900/10' : '';
                         const tooltip = `Registrado por: ${reg.usuario}\nObs: ${reg.incidencia || 'Ninguna'}`;
                         const obsSpan = isDesviacion ? '<span class="block text-[10px] text-red-500 font-normal mt-1">Ver Obs.</span>' : '';
@@ -645,7 +638,6 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
                                          </td>`;
                         }
                     } else {
-                        // Celdas Vacías
                         const celdaVaciaClass = `text-center border-r border-gray-200 dark:border-gray-700 ${esInactivo ? 'bg-gray-100 dark:bg-gray-800' : ''}`;
                         
                         if (usaHumedad) {
@@ -656,7 +648,7 @@ document.getElementById('btn-generar-reporte').addEventListener('click', async (
                         }
                     }
                 });
-               
+                
                 bodyHTML += '</tr>';
             }
             tbody.innerHTML = bodyHTML;
@@ -680,31 +672,32 @@ function restaurarBotonReporte(btn, htmlOriginal) {
 // 8. LÓGICA DE EDICIÓN MASIVA (TIPO EXCEL)
 // ==========================================
 
-// Esta función dibuja un Input invisible dentro de la celda si el usuario tiene permisos
 function generarInputCelda(valor, fecha, turno, tipo, puedeEditar) {
     if (!puedeEditar) return valor === '' ? '-' : `${valor}${tipo === 'temp' ? '°' : '%'}`;
     
-    // Si tiene permisos, devolvemos un input que se camufla con el fondo
     const placeholder = tipo === 'temp' ? '°C' : '%HR';
     const textColor = valor === '' ? 'text-gray-900 dark:text-gray-100' : '';
     
+    // OTIMIZACIÓN: Añadido onkeydown para soportar el Enter y validar al momento
     return `<input type="number" step="0.1" value="${valor}" data-old="${valor}" data-fecha="${fecha}" data-turno="${turno}" data-tipo="${tipo}" placeholder="${placeholder}"
              class="w-full bg-transparent text-center focus:outline-none focus:bg-blue-50 dark:focus:bg-blue-900/50 focus:ring-2 focus:ring-blue-400 rounded transition-all font-bold cursor-text placeholder-gray-300 dark:placeholder-gray-600 ${textColor}" 
-             onblur="validarCeldaMasiva(this)">`;
+             onblur="validarCeldaMasiva(this)" onkeydown="if(event.key==='Enter') this.blur()">`;
 }
 
-// Se ejecuta cada vez que el usuario teclea algo y quita el mouse (Evento Blur)
 function validarCeldaMasiva(input) {
     const newVal = input.value.trim();
     const oldVal = input.getAttribute('data-old').trim();
     
-    // Si entró, miró y no cambió nada, salimos
-    if (newVal === oldVal) return;
-
     const fecha = input.getAttribute('data-fecha');
     const turno = input.getAttribute('data-turno');
     const tipo = input.getAttribute('data-tipo');
     const key = `${fecha}_${turno}`;
+
+    // Validar contra lo que está en el carrito actualmente para evitar falsos positivos
+    const currentCartVal = (cambiosPendientes[key] && cambiosPendientes[key][tipo] !== undefined) ? cambiosPendientes[key][tipo] : oldVal;
+
+    // Si no hubo un cambio real desde la última vez que tecleaste, ignorar
+    if (newVal === currentCartVal) return;
 
     const idCamara = document.getElementById('rev-camara').value;
     const camara = camarasDisponibles.find(c => c.id.toString() === idCamara.toString());
@@ -712,7 +705,7 @@ function validarCeldaMasiva(input) {
     let isDesviacion = false;
     let incidencia = "";
 
-    // 1. Validar HACCP (Si ingresó un valor)
+    // 1. Validar Rangos HACCP
     if (newVal !== '') {
         const num = parseFloat(newVal);
         if (tipo === 'temp' && (num < camara.minTemp || num > camara.maxTemp)) isDesviacion = true;
@@ -723,14 +716,16 @@ function validarCeldaMasiva(input) {
         }
     }
 
-    // 2. Interceptor (SMART PROMPT): Si se edita algo viejo, o si el nuevo valor está desviado, exigir justificación
-    if (newVal !== '' && (oldVal !== '' || isDesviacion)) {
-        let razon = isDesviacion ? "⚠️ VALOR FUERA DE RANGO HACCP.\n" : "✏️ EDICIÓN DE REGISTRO HISTÓRICO.\n";
+    // 2. Interceptor (Smart Prompt): Exigir motivo si hay desviación, o si se modifica/borra data histórica
+    if (isDesviacion || (oldVal !== '' && newVal !== oldVal)) {
+        let razon = isDesviacion ? "⚠️ VALOR FUERA DE RANGO HACCP.\n" : "✏️ MODIFICACIÓN DE REGISTRO HISTÓRICO.\n";
+        if (newVal === '') razon = "🗑️ BORRADO DE REGISTRO HISTÓRICO.\n"; // Ahora detecta borrados
+
         let motivo = prompt(`${razon}Ingrese obligatoriamente el motivo / corrección:`);
         
         if (!motivo || motivo.trim() === '') {
-            alert("No se puede aceptar el valor sin justificación. Restaurando...");
-            input.value = oldVal; // Revertir
+            alert("Operación cancelada. El valor ha sido restaurado.");
+            input.value = currentCartVal; // Revertir visualmente
             return;
         }
         incidencia = motivo.trim();
@@ -738,7 +733,6 @@ function validarCeldaMasiva(input) {
 
     // 3. Añadir al "Carrito de Cambios"
     if (!cambiosPendientes[key]) {
-        // Inicializamos el objeto buscando el valor "hermano" (por si la cámara usa temp y hum)
         const tr = input.closest('tr');
         const inputTemp = tr.querySelector(`input[data-fecha="${fecha}"][data-turno="${turno}"][data-tipo="temp"]`);
         const inputHum = tr.querySelector(`input[data-fecha="${fecha}"][data-turno="${turno}"][data-tipo="hum"]`);
@@ -748,18 +742,34 @@ function validarCeldaMasiva(input) {
             turno: turno,
             temp: inputTemp ? inputTemp.getAttribute('data-old') : '',
             hum: inputHum ? inputHum.getAttribute('data-old') : '',
-            incidencia: incidencia
+            incidencia: ''
         };
     }
 
-    // 4. Actualizar el valor específico modificado
+    // Actualizar el valor específico
     cambiosPendientes[key][tipo] = newVal;
     if (incidencia) cambiosPendientes[key].incidencia = incidencia;
 
-    // 5. UX: Pintar celda de amarillo para indicar estado "Sucio"
-    input.classList.add('bg-yellow-100', 'dark:bg-yellow-900/40', 'text-yellow-900', 'dark:text-yellow-200');
+    // 4. SMART UNDO (Deshacer Inteligente): ¿El usuario dejó la celda tal y como estaba en BD?
+    const tr = input.closest('tr');
+    const iTemp = tr.querySelector(`input[data-fecha="${fecha}"][data-turno="${turno}"][data-tipo="temp"]`);
+    const iHum = tr.querySelector(`input[data-fecha="${fecha}"][data-turno="${turno}"][data-tipo="hum"]`);
+    
+    const tOld = iTemp ? iTemp.getAttribute('data-old') : '';
+    const tNew = iTemp ? iTemp.value.trim() : '';
+    const hOld = iHum ? iHum.getAttribute('data-old') : '';
+    const hNew = iHum ? iHum.value.trim() : '';
 
-    // 6. Mostrar el panel flotante
+    if (tOld === tNew && hOld === hNew) {
+        // Deshizo los cambios manualmente
+        delete cambiosPendientes[key]; 
+        if(iTemp) iTemp.classList.remove('bg-yellow-100', 'dark:bg-yellow-900/40', 'text-yellow-900', 'dark:text-yellow-200');
+        if(iHum) iHum.classList.remove('bg-yellow-100', 'dark:bg-yellow-900/40', 'text-yellow-900', 'dark:text-yellow-200');
+    } else {
+        // El cambio prevalece
+        input.classList.add('bg-yellow-100', 'dark:bg-yellow-900/40', 'text-yellow-900', 'dark:text-yellow-200');
+    }
+
     actualizarPanelMasivo();
 }
 
@@ -776,7 +786,7 @@ async function guardarCambiosMasivos() {
     const arrCambios = Object.values(cambiosPendientes);
     if (arrCambios.length === 0) return;
 
-    // Validar que en los pares, la temperatura exista (no se puede mandar humedad sin temperatura)
+    // Validar integridad
     for (let c of arrCambios) {
         if (c.temp === '' && c.hum !== '') {
             return alert(`Error: Ha ingresado Humedad pero falta Temperatura para el día ${c.fecha} turno ${c.turno}.`);
@@ -798,7 +808,6 @@ async function guardarCambiosMasivos() {
     try {
         const response = await apiFetch(payload);
         if (response.status === 'success') {
-            // Limpiar carrito, ocultar panel y recargar tabla
             cambiosPendientes = {};
             actualizarPanelMasivo();
             document.getElementById('btn-generar-reporte').click();
@@ -812,4 +821,3 @@ async function guardarCambiosMasivos() {
         btn.innerHTML = originalHTML;
     }
 }
-
