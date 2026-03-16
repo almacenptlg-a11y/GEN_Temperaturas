@@ -188,6 +188,26 @@
 
   </div>
 
+  <div id="modal-justificacion" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-gray-900/60 backdrop-blur-sm transition-opacity">
+    <div class="bg-white dark:bg-gray-800 w-[90%] max-w-md rounded-2xl shadow-2xl overflow-hidden transform scale-95 transition-transform duration-300">
+        
+        <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3 bg-gray-50 dark:bg-gray-800/50">
+            <i id="modal-just-icono" class="ph ph-warning-octagon text-3xl"></i>
+            <h3 id="modal-just-titulo" class="font-bold text-lg">Advertencia</h3>
+        </div>
+        
+        <div class="p-5">
+            <p id="modal-just-mensaje" class="text-sm text-gray-600 dark:text-gray-300 mb-3 font-medium">Ingrese la justificación:</p>
+            <textarea id="modal-just-input" rows="3" class="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-white px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow resize-none text-sm outline-none" placeholder="Escriba el motivo aquí..."></textarea>
+            <p id="modal-just-error" class="text-xs text-red-500 font-bold mt-2 hidden"><i class="ph ph-warning-circle"></i> Este campo es obligatorio para continuar.</p>
+        </div>
+        
+        <div class="p-4 bg-gray-50 dark:bg-gray-700/50 flex justify-end gap-3 border-t border-gray-100 dark:border-gray-700">
+            <button id="btn-just-cancelar" class="px-4 py-2 rounded-xl text-sm font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Cancelar</button>
+            <button id="btn-just-confirmar" class="px-4 py-2 rounded-xl text-sm font-bold text-white transition-colors shadow-sm">Confirmar</button>
+        </div>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>
