@@ -570,7 +570,99 @@ function generarCelda(valor, fecha, turno, tipo, puedeEditar, isDesviacion) {
              onblur="validarCeldaMasiva(this)" onkeydown="if(event.key==='Enter') this.blur()">`;
 }
 
-function validarCeldaMasiva(input) {
+// ==========================================
+// MOTOR DEL MODAL DE JUSTIFICACIÓN (Promesa Asíncrona)
+// ==========================================
+function solicitarJustificacion(titulo, mensaje, tipoAlerta) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('modal-justificacion');
+        const tituloEl = document.getElementById('modal-just-titulo');
+        const mensajeEl = document.getElementById('modal-just-mensaje');
+        const inputEl = document.getElementById('modal-just-input');
+        const iconoEl = document.getElementById('modal-just-icono');
+        const errorEl = document.getElementById('modal-just-error');
+        const btnCancelar = document.getElementById('btn-just-cancelar');
+        const btnConfirmar = document.getElementById('btn-just-confirmar');
+
+        // Aplicar Estilos Dinámicos (Rojo, Azul o Naranja)
+        if (tipoAlerta === 'rango') {
+            iconoEl.className = 'ph ph-warning-octagon text-3xl text-red-500';
+            tituloEl.className = 'font-bold text-lg text-red-600 dark:text-red-400';
+            btnConfirmar.className = 'px-4 py-2 rounded-xl text-sm font-bold text-white bg-red-500 hover:bg-red-600 shadow-sm transition-colors';
+        } else if (tipoAlerta === 'borrado') {
+            iconoEl.className = 'ph ph-trash text-3xl text-orange-500';
+            tituloEl.className = 'font-bold text-lg text-orange-600 dark:text-orange-400';
+            btnConfirmar.className = 'px-4 py-2 rounded-xl text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-sm transition-colors';
+        } else {
+            iconoEl.className = 'ph ph-pencil-simple text-3xl text-blue-500';
+            tituloEl.className = 'font-bold text-lg text-blue-600 dark:text-blue-400';
+            btnConfirmar.className = 'px-4 py-2 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors';
+        }
+
+        tituloEl.textContent = titulo;
+        mensajeEl.textContent = mensaje;
+        inputEl.value = '';
+        errorEl.classList.add('hidden');
+
+        // Animación de entrada
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.firstElementChild.classList.remove('scale-95');
+            modal.firstElementChild.classList.add('scale-100');
+            inputEl.focus();
+        }, 10);
+
+        // Función para limpiar y cerrar
+        const cerrarModal = (resultado) => {
+            modal.firstElementChild.classList.remove('scale-100');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                resolve(resultado);
+            }, 200);
+        };
+
+        // Eventos de botones
+        const onConfirm = () => {
+            const val = inputEl.value.trim();
+            if (!val) {
+                errorEl.classList.remove('hidden');
+                inputEl.focus();
+                return;
+            }
+            limpiarEventos();
+            cerrarModal(val);
+        };
+
+        const onCancel = () => {
+            limpiarEventos();
+            cerrarModal(null);
+        };
+
+        const onEnterKey = (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                onConfirm();
+            }
+        };
+
+        const limpiarEventos = () => {
+            btnConfirmar.removeEventListener('click', onConfirm);
+            btnCancelar.removeEventListener('click', onCancel);
+            inputEl.removeEventListener('keydown', onEnterKey);
+        };
+
+        btnConfirmar.addEventListener('click', onConfirm);
+        btnCancelar.addEventListener('click', onCancel);
+        inputEl.addEventListener('keydown', onEnterKey);
+    });
+}
+
+
+// ==========================================
+// VALIDACIÓN DE CELDAS MASIVAS (Ahora es Async)
+// ==========================================
+async function validarCeldaMasiva(input) {
     const newVal = input.value.trim();
     const oldVal = input.getAttribute('data-old').trim();
     const fecha = input.getAttribute('data-fecha');
@@ -586,6 +678,7 @@ function validarCeldaMasiva(input) {
     let isDesviacion = false;
     let incidencia = "";
 
+    // 1. Evaluar si hay desviación HACCP
     if (newVal !== '') {
         const num = parseFloat(newVal);
         if (tipo === 'temp' && (num < camara.minTemp || num > camara.maxTemp)) isDesviacion = true;
@@ -596,18 +689,32 @@ function validarCeldaMasiva(input) {
         }
     }
 
+    // 2. Invocar Nuevo Modal Custom
     if (isDesviacion || (oldVal !== '' && newVal !== oldVal)) {
-        let razon = isDesviacion ? "⚠️ VALOR FUERA DE RANGO HACCP.\n" : "✏️ MODIFICACIÓN HISTÓRICA.\n";
-        if (newVal === '') razon = "🗑️ BORRADO HISTÓRICO.\n"; 
+        let titulo = isDesviacion ? "Valores Fuera de Rango" : "Modificación Histórica";
+        let mensaje = isDesviacion 
+            ? "El valor ingresado supera los límites HACCP permitidos. Ingrese la medida correctiva:" 
+            : "Está modificando un registro histórico. Indique el motivo de la corrección:";
+        let tipoAlerta = isDesviacion ? 'rango' : 'edicion';
 
-        let motivo = prompt(`${razon}Ingrese obligatoriamente justificación:`);
-        if (!motivo || motivo.trim() === '') {
-            input.value = currentCartVal; 
+        if (newVal === '') {
+            titulo = "Borrar Registro";
+            mensaje = "Está intentando eliminar un registro histórico de la base de datos. Ingrese el motivo:";
+            tipoAlerta = 'borrado';
+        }
+
+        // Esperamos a que el usuario interactúe con el hermoso Modal
+        let motivo = await solicitarJustificacion(titulo, mensaje, tipoAlerta);
+        
+        // Si le dio a Cancelar o cerró
+        if (!motivo) {
+            input.value = currentCartVal; // Revertimos silenciosamente
             return;
         }
         incidencia = motivo.trim();
     }
 
+    // 3. Procesar Cambios en el Carrito
     if (!cambiosPendientes[key]) {
         const tr = input.closest('tr');
         const inputTemp = tr.querySelector(`input[data-fecha="${fecha}"][data-turno="${turno}"][data-tipo="temp"]`);
@@ -624,6 +731,7 @@ function validarCeldaMasiva(input) {
     cambiosPendientes[key][tipo] = newVal;
     if (incidencia) cambiosPendientes[key].incidencia = incidencia;
 
+    // 4. Lógica de Reversión visual si vuelve al estado original
     const tr = input.closest('tr');
     const iTemp = tr.querySelector(`input[data-fecha="${fecha}"][data-turno="${turno}"][data-tipo="temp"]`);
     const iHum = tr.querySelector(`input[data-fecha="${fecha}"][data-turno="${turno}"][data-tipo="hum"]`);
@@ -645,7 +753,6 @@ function validarCeldaMasiva(input) {
 
 function actualizarPanelMasivo() {
     const count = Object.keys(cambiosPendientes).length;
-    // NUEVA LÓGICA: Controla el botón superior en lugar del banner inferior
     const btnGuardar = document.getElementById('btn-ejecutar-masivo');
     const txtCount = document.getElementById('txt-btn-guardar-masivo');
 
@@ -691,6 +798,6 @@ async function guardarCambiosMasivos() {
     finally { 
         btn.disabled = false; 
         btn.innerHTML = originalHTML; 
-        actualizarPanelMasivo(); // Aseguramos que se actualice o se oculte
+        actualizarPanelMasivo(); 
     }
 }
