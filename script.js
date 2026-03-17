@@ -1,5 +1,5 @@
 // =========================================================================
-// SCRIPT.JS - CONTROL DE TEMPERATURAS (OPTIMIZADO: RENDIMIENTO Y SEGURIDAD)
+// SCRIPT.JS - CONTROL DE TEMPERATURAS (VERSIÓN UNIFICADA FINAL)
 // =========================================================================
 
 const API_URL = "https://script.google.com/macros/s/AKfycbw9DjZJw8DelWMQQKvUxGhjHs1Ka0sWZPyHBu4lYwMg-2L-avGrzWNEoZOMXT8x9g3c/exec"; 
@@ -30,7 +30,6 @@ window.addEventListener('message', (event) => {
     if (type === 'SESSION_SYNC' && user) {
         document.documentElement.classList.toggle('dark', theme === 'dark');
         
-        // SEGURIDAD: Validar si el usuario cambió respecto a la caché
         const isNewUser = !AppState.user || AppState.user.usuario !== user.usuario;
         
         AppState.user = user;
@@ -39,7 +38,6 @@ window.addEventListener('message', (event) => {
         
         actualizarUIUsuario();
 
-        // Si es un usuario nuevo o las cámaras no han cargado, recargar catálogo
         if (isNewUser || AppState.camaras.length === 0) cargarCamaras();
     }
 });
@@ -59,7 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         if (!AppState.isSessionVerified) {
             document.getElementById('txt-usuario-activo').innerHTML = '<i class="ph ph-warning text-red-500"></i> Esperando autorización...';
-            document.getElementById('btn-guardar-lectura').disabled = true;
+            const btn = document.getElementById('btn-guardar-lectura');
+            if(btn) btn.disabled = true;
         }
     }, 4000);
 });
@@ -67,28 +66,54 @@ document.addEventListener('DOMContentLoaded', () => {
 function actualizarUIUsuario() {
     if(!AppState.user) return;
     document.getElementById('txt-usuario-activo').innerHTML = `<i class="ph ph-user-check"></i> ${AppState.user.nombre} | ${AppState.user.area}`;
+
+    // CONTROL DE ACCESO VISUAL AL DASHBOARD
+    const rolesDashboard = ['JEFE', 'GERENTE', 'ADMINISTRADOR'];
+    const tabDash = document.getElementById('tab-dashboard');
+    if (tabDash) {
+        if (rolesDashboard.includes(AppState.user.rol.toUpperCase())) {
+            tabDash.style.display = ''; 
+        } else {
+            tabDash.style.display = 'none'; 
+        }
+    }
 }
 
 function configurarFechaInicial() {
     const hoy = new Date();
     hoy.setHours(hoy.getHours() - 5); 
-    document.getElementById('val-fecha').value = hoy.toISOString().split('T')[0]; 
+    const inputF = document.getElementById('val-fecha');
+    if(inputF) inputF.value = hoy.toISOString().split('T')[0]; 
 }
 
 // ==========================================
-// 3. CONEXIÓN API (CORE)
+// 3. CONEXIÓN API (BLINDADA)
 // ==========================================
 async function apiFetch(payload) {
     try {
-        const response = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
-        return await response.json();
-    } catch (error) { throw new Error("Fallo de red"); }
+        const response = await fetch(API_URL, { 
+            method: 'POST', 
+            body: JSON.stringify(payload) 
+        });
+        
+        const text = await response.text();
+        try {
+            return JSON.parse(text);
+        } catch (err) {
+            console.error("El servidor devolvió un error HTML/Texto en lugar de JSON:", text);
+            throw new Error("Error interno del servidor Google.");
+        }
+    } catch (error) {
+        console.error("Fallo de red en apiFetch:", error);
+        throw new Error("Fallo de red. Verifique su conexión o la publicación del Script.");
+    }
 }
 
 async function cargarCamaras() {
     if(!AppState.user) return;
     const select = document.getElementById('camara-select');
-    
+    if(!select) return;
+
     try {
         const res = await apiFetch({ action: 'getCamarasConfig', userEmail: AppState.user.usuario, userRol: AppState.user.rol, userArea: AppState.user.area });
         if (res.status === 'success') {
@@ -102,23 +127,32 @@ async function cargarCamaras() {
             select.classList.add('dark:bg-gray-800');
             
             const btn = document.getElementById('btn-guardar-lectura');
-            btn.classList.replace('bg-gray-400', 'bg-blue-600');
-            btn.classList.replace('dark:bg-gray-600', 'hover:bg-blue-700');
-            btn.classList.remove('cursor-not-allowed');
-            btn.innerHTML = '<i class="ph ph-floppy-disk text-2xl"></i> Registrar Lectura';
+            if(btn) {
+                btn.classList.replace('bg-gray-400', 'bg-blue-600');
+                btn.classList.replace('dark:bg-gray-600', 'hover:bg-blue-700');
+                btn.classList.remove('cursor-not-allowed');
+                btn.innerHTML = '<i class="ph ph-floppy-disk text-2xl"></i> Registrar Lectura';
+                btn.disabled = false;
+            }
+        } else {
+            select.innerHTML = `<option value="">Error: ${res.message}</option>`;
         }
-    } catch (e) { select.innerHTML = '<option value="">Error de conexión</option>'; }
+    } catch (e) { 
+        select.innerHTML = '<option value="">Error de conexión</option>'; 
+    }
 }
 
 // ==========================================
 // 4. REGISTRO DIARIO Y TRIGGERS (VISTA 1)
 // ==========================================
 
-document.getElementById('camara-select').addEventListener('change', manejarCambioCamara);
-document.getElementById('val-fecha').addEventListener('change', verificarTurnosDisponibles); 
+const selCamara = document.getElementById('camara-select');
+const inFecha = document.getElementById('val-fecha');
+if(selCamara) selCamara.addEventListener('change', manejarCambioCamara);
+if(inFecha) inFecha.addEventListener('change', verificarTurnosDisponibles); 
 
 function manejarCambioCamara(e) {
-    const camara = AppState.camaras.find(c => c.id == e.target.value);
+    const camara = AppState.camaras.find(c => c.id.toString() === e.target.value.toString());
     const ui = {
         boxHum: document.getElementById('box-humedad'),
         banner: document.getElementById('banner-limites'),
@@ -165,7 +199,9 @@ async function verificarTurnosDisponibles() {
     container.innerHTML = '<div class="col-span-3 md:col-span-6 text-sm text-blue-600 font-bold py-4 text-center bg-blue-50 dark:bg-blue-900/30 rounded-lg"><i class="ph ph-spinner animate-spin text-xl inline-block mr-2"></i> Consultando turnos...</div>';
 
     try {
-        const res = await apiFetch({ action: 'getTurnosRegistrados', idCamara, fecha: fecha.split('-').reverse().join('/') });
+        const fechaFormat = fecha.split('-').reverse().join('/');
+        const res = await apiFetch({ action: 'getTurnosRegistrados', idCamara: idCamara, fecha: fechaFormat });
+        
         if (res.status === 'success') {
             container.innerHTML = '';
             let disp = 0;
@@ -185,8 +221,12 @@ async function verificarTurnosDisponibles() {
                 container.appendChild(btn);
             });
             if (disp === 0) container.innerHTML = '<div class="col-span-3 md:col-span-6 text-center text-amber-700 font-bold bg-amber-50 p-4 rounded-lg">⚠️ Turnos completados.</div>';
+        } else {
+            container.innerHTML = `<div class="col-span-3 md:col-span-6 text-center text-red-600 font-bold bg-red-50 p-3 rounded-lg">${res.message}</div>`;
         }
-    } catch (e) { container.innerHTML = '<div class="col-span-3 md:col-span-6 text-center text-red-600 font-bold bg-red-50 p-3 rounded-lg">Error de red.</div>'; }
+    } catch (e) { 
+        container.innerHTML = '<div class="col-span-3 md:col-span-6 text-center text-red-600 font-bold bg-red-50 p-3 rounded-lg">Error de red.</div>'; 
+    }
 }
 
 function seleccionarBotonTurno(turno, btnActivado) {
@@ -199,11 +239,13 @@ function seleccionarBotonTurno(turno, btnActivado) {
     btnActivado.querySelector('i').className = 'ph ph-check-circle-fill text-2xl text-blue-600 dark:text-blue-400';
 }
 
-document.getElementById('val-temp').addEventListener('input', evaluarParametrosEnVivo);
-document.getElementById('val-humedad').addEventListener('input', evaluarParametrosEnVivo);
+const inTemp = document.getElementById('val-temp');
+const inHum = document.getElementById('val-humedad');
+if(inTemp) inTemp.addEventListener('input', evaluarParametrosEnVivo);
+if(inHum) inHum.addEventListener('input', evaluarParametrosEnVivo);
 
 function evaluarParametrosEnVivo() {
-    const camara = AppState.camaras.find(c => c.id == document.getElementById('camara-select').value);
+    const camara = AppState.camaras.find(c => c.id.toString() === document.getElementById('camara-select').value.toString());
     const panel = document.getElementById('panel-estado');
     const tempVal = document.getElementById('val-temp').value;
     const humVal = document.getElementById('val-humedad').value;
@@ -239,167 +281,212 @@ function evaluarParametrosEnVivo() {
 }
 
 // GUARDAR REGISTRO
-document.getElementById('form-lectura-camara').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if(!AppState.isSessionVerified) return alert("Sesión no validada.");
-    
-    const turnoElegido = document.getElementById('turno-seleccionado').value;
-    if (!turnoElegido) return alert("Seleccione un turno.");
+const formRegistro = document.getElementById('form-lectura-camara');
+if(formRegistro) {
+    formRegistro.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if(!AppState.isSessionVerified) return alert("Sesión no validada.");
+        
+        const turnoElegido = document.getElementById('turno-seleccionado').value;
+        if (!turnoElegido) return alert("Seleccione un turno disponible.");
 
-    const btn = document.getElementById('btn-guardar-lectura');
-    btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Guardando...';
+        const btn = document.getElementById('btn-guardar-lectura');
+        btn.disabled = true; 
+        btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Guardando...';
 
-    const payload = {
-        action: 'registrarLecturaCamara',
-        idCamara: document.getElementById('camara-select').value,
-        fecha: document.getElementById('val-fecha').value.split('-').reverse().join('/'),
-        turno: turnoElegido,
-        temperatura: document.getElementById('val-temp').value,
-        humedad: document.getElementById('val-humedad').value,
-        incidencia: document.getElementById('val-incidencia').value,
-        userName: AppState.user.nombre 
-    };
+        const payload = {
+            action: 'registrarLecturaCamara',
+            idCamara: document.getElementById('camara-select').value,
+            fecha: document.getElementById('val-fecha').value.split('-').reverse().join('/'),
+            turno: turnoElegido,
+            temperatura: document.getElementById('val-temp').value,
+            humedad: document.getElementById('val-humedad').value,
+            incidencia: document.getElementById('val-incidencia').value,
+            userName: AppState.user.nombre 
+        };
 
-    try {
-        const res = await apiFetch(payload);
-        if (res.status === 'success') {
-            btn.innerHTML = '<i class="ph ph-check-circle text-xl"></i> ¡Exito!';
-            setTimeout(() => {
-                document.getElementById('form-lectura-camara').reset();
-                configurarFechaInicial(); 
-                document.getElementById('panel-estado').classList.add('hidden');
-                verificarTurnosDisponibles();
-                btn.disabled = false; btn.innerHTML = '<i class="ph ph-floppy-disk text-2xl"></i> Registrar Lectura';
-            }, 1500);
-        } else throw new Error(res.message);
-    } catch (e) { alert('Error: ' + e.message); btn.disabled = false; btn.innerHTML = '<i class="ph ph-floppy-disk text-2xl"></i> Registrar'; }
-});
-
+        try {
+            const res = await apiFetch(payload);
+            if (res.status === 'success') {
+                btn.innerHTML = '<i class="ph ph-check-circle text-xl"></i> ¡Exito!';
+                setTimeout(() => {
+                    document.getElementById('form-lectura-camara').reset();
+                    configurarFechaInicial(); 
+                    document.getElementById('panel-estado').classList.add('hidden');
+                    verificarTurnosDisponibles();
+                    btn.disabled = false; 
+                    btn.innerHTML = '<i class="ph ph-floppy-disk text-2xl"></i> Registrar Lectura';
+                }, 1500);
+            } else {
+                throw new Error(res.message);
+            }
+        } catch (e) { 
+            alert('Error: ' + e.message); 
+            btn.disabled = false; 
+            btn.innerHTML = '<i class="ph ph-floppy-disk text-2xl"></i> Registrar Lectura'; 
+        }
+    });
+}
 
 // ==========================================
-// 5. NAVEGACIÓN Y DASHBOARD JEFATURA
+// 5. NAVEGACIÓN (TABS)
 // ==========================================
-document.getElementById('tab-registro').addEventListener('click', () => switchTab('registro'));
-document.getElementById('tab-revision').addEventListener('click', () => switchTab('revision'));
-document.getElementById('tab-dashboard').addEventListener('click', () => switchTab('dashboard')); // NUEVO
+const tabReg = document.getElementById('tab-registro');
+const tabRev = document.getElementById('tab-revision');
+const tabDash = document.getElementById('tab-dashboard');
+
+if(tabReg) tabReg.addEventListener('click', () => switchTab('registro'));
+if(tabRev) tabRev.addEventListener('click', () => switchTab('revision'));
+if(tabDash) tabDash.addEventListener('click', () => switchTab('dashboard'));
 
 function switchTab(tab) {
-    const vReg = document.getElementById('vista-registro'), 
-          vRev = document.getElementById('vista-revision'),
-          vDash = document.getElementById('vista-dashboard'); // NUEVO
+    const rolesDashboard = ['JEFE', 'GERENTE', 'ADMINISTRADOR'];
+    
+    // BLINDAJE LÓGICO DEL DASHBOARD
+    if (tab === 'dashboard') {
+        if (!AppState.user || !rolesDashboard.includes(AppState.user.rol.toUpperCase())) {
+            return alert("Acceso denegado. El Dashboard es exclusivo para Jefaturas y Gerencia.");
+        }
+    }
+
+    const vReg = document.getElementById('vista-registro');
+    const vRev = document.getElementById('vista-revision');
+    const vDash = document.getElementById('vista-dashboard'); 
           
-    const tReg = document.getElementById('tab-registro'), 
-          tRev = document.getElementById('tab-revision'),
-          tDash = document.getElementById('tab-dashboard'); // NUEVO
+    const tReg = document.getElementById('tab-registro');
+    const tRev = document.getElementById('tab-revision');
+    const tDash = document.getElementById('tab-dashboard'); 
 
     const actClass = ['border-blue-600','text-blue-600','dark:text-blue-400'];
     const inactClass = ['border-transparent','text-gray-500','dark:text-gray-400'];
 
-    // Ocultar todas las vistas y limpiar estilos
-    [vReg, vRev, vDash].forEach(v => { v.classList.replace('block', 'hidden'); v.classList.replace('flex', 'hidden'); });
-    [tReg, tRev, tDash].forEach(t => { t.classList.add(...inactClass); t.classList.remove(...actClass); });
+    if(vReg) { vReg.classList.replace('block', 'hidden'); vReg.classList.replace('flex', 'hidden'); }
+    if(vRev) { vRev.classList.replace('block', 'hidden'); vRev.classList.replace('flex', 'hidden'); }
+    if(vDash) { vDash.classList.replace('block', 'hidden'); vDash.classList.replace('flex', 'hidden'); }
 
-    // Mostrar vista seleccionada
-    if (tab === 'registro') {
+    if(tReg) { tReg.classList.add(...inactClass); tReg.classList.remove(...actClass); }
+    if(tRev) { tRev.classList.add(...inactClass); tRev.classList.remove(...actClass); }
+    if(tDash) { tDash.classList.add(...inactClass); tDash.classList.remove(...actClass); }
+
+    if (tab === 'registro' && vReg && tReg) {
         vReg.classList.replace('hidden', 'block'); 
         tReg.classList.add(...actClass); tReg.classList.remove(...inactClass);
-    } else if (tab === 'revision') {
+    } else if (tab === 'revision' && vRev && tRev) {
         vRev.classList.replace('hidden', 'flex'); 
         tRev.classList.add(...actClass); tRev.classList.remove(...inactClass);
         const revC = document.getElementById('rev-camara');
-        if (revC.options.length <= 1 && AppState.camaras.length > 0) {
+        if (revC && revC.options.length <= 1 && AppState.camaras.length > 0) {
             revC.innerHTML = '<option value="">Seleccione...</option>' + AppState.camaras.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
             const hoy = new Date();
             document.getElementById('rev-mes').value = hoy.getMonth() + 1;
             document.getElementById('rev-anio').value = hoy.getFullYear();
         }
-    } else if (tab === 'dashboard') {
+    } else if (tab === 'dashboard' && vDash && tDash) {
         vDash.classList.replace('hidden', 'flex'); 
         tDash.classList.add(...actClass); tDash.classList.remove(...inactClass);
-        // Setear fecha por defecto si está vacío
-        if(!document.getElementById('dash-mes').value) {
+        
+        const dMes = document.getElementById('dash-mes');
+        const dAnio = document.getElementById('dash-anio');
+        if(dMes && !dMes.value) {
             const hoy = new Date();
-            document.getElementById('dash-mes').value = hoy.getMonth() + 1;
-            document.getElementById('dash-anio').value = hoy.getFullYear();
+            dMes.value = hoy.getMonth() + 1;
+            dAnio.value = hoy.getFullYear();
         }
     }
 }
 
-document.getElementById('rev-camara').addEventListener('change', (e) => {
-    const c = AppState.camaras.find(c => c.id == e.target.value);
-    const tools = document.getElementById('rev-herramientas');
-    if (!c) return tools.classList.add('hidden');
-    
-    document.getElementById('rev-txt-temp').innerHTML = `<i class="ph ph-thermometer-simple text-blue-600 dark:text-blue-400"></i> ${c.minTemp}°C a ${c.maxTemp}°C`;
-    document.getElementById('rev-txt-hr').innerHTML = (c.minHr) ? `<i class="ph ph-drop text-blue-600 dark:text-blue-400"></i> ${(c.minHr<=1?c.minHr*100:c.minHr)}% a ${(c.maxHr<=1?c.maxHr*100:c.maxHr)}%` : '';
-    tools.classList.remove('hidden'); tools.classList.add('flex');
-});
-
-document.getElementById('btn-generar-reporte').addEventListener('click', async () => {
-    const idC = document.getElementById('rev-camara').value;
-    const m = document.getElementById('rev-mes').value;
-    const a = document.getElementById('rev-anio').value;
-    
-    if (!idC) return alert("Seleccione cámara.");
-    ['btn-descargar-pdf', 'btn-imprimir'].forEach(id => document.getElementById(id).classList.add('hidden'));
-
-    const cSel = AppState.camaras.find(c => c.id == idC);
-    AppState.configRev = { mes: parseInt(m), anio: parseInt(a), usaHumedad: !!cSel.minHr };
-
-    const btn = document.getElementById('btn-generar-reporte');
-    const origHTML = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i>';
-    
-    document.getElementById('tabla-container').classList.add('hidden');
-    const msg = document.getElementById('tabla-mensaje');
-    msg.classList.remove('hidden'); msg.innerHTML = '<i class="ph ph-spinner animate-spin text-4xl text-blue-500"></i><br>Procesando Matriz...';
-
-    try {
-        if (Object.keys(AppState.cambiosCart).length > 0) { AppState.cambiosCart = {}; actualizarPanelMasivo(); }
-        const res = await apiFetch({ action: 'getRegistrosRevision', idCamara: idC, mes: m, anio: a });
+// ==========================================
+// 6. MATRIZ DE REVISIÓN Y EDICIÓN MASIVA
+// ==========================================
+const selRevCamara = document.getElementById('rev-camara');
+if(selRevCamara) {
+    selRevCamara.addEventListener('change', (e) => {
+        const c = AppState.camaras.find(c => c.id.toString() === e.target.value.toString());
+        const tools = document.getElementById('rev-herramientas');
+        if (!c) return tools.classList.add('hidden');
         
-        if (res.status === 'success') {
-            AppState.revisionData = res.data; 
-            if (AppState.revisionData.length === 0 && !AppState.modoEdicion) {
-                msg.innerHTML = '<i class="ph ph-folder-open text-5xl text-gray-400"></i><br>Sin registros.';
-            } else {
-                msg.classList.add('hidden');
-                document.getElementById('tabla-container').classList.remove('hidden');
-                dibujarMatrizUI();
-                ['btn-descargar-pdf', 'btn-imprimir'].forEach(id => document.getElementById(id).classList.remove('hidden'));
-            }
-        } else throw new Error(res.message);
-    } catch (e) { msg.innerHTML = 'Error de red.'; } 
-    finally { btn.disabled = false; btn.innerHTML = origHTML; }
-});
+        document.getElementById('rev-txt-temp').innerHTML = `<i class="ph ph-thermometer-simple text-blue-600 dark:text-blue-400"></i> ${c.minTemp}°C a ${c.maxTemp}°C`;
+        document.getElementById('rev-txt-hr').innerHTML = (c.minHr) ? `<i class="ph ph-drop text-blue-600 dark:text-blue-400"></i> ${(c.minHr<=1?c.minHr*100:c.minHr)}% a ${(c.maxHr<=1?c.maxHr*100:c.maxHr)}%` : '';
+        tools.classList.remove('hidden'); tools.classList.add('flex');
+    });
+}
 
-// ==========================================
-// 6. MOTOR DE MATRIZ Y EDICIÓN MASIVA (CON FIX DARK MODE)
-// ==========================================
-document.getElementById('btn-toggle-edicion').addEventListener('click', () => {
-    const rols = ['JEFE', 'ADMINISTRADOR', 'SUPERVISOR'];
-    if (!AppState.user || !rols.includes(AppState.user.rol.toUpperCase())) return alert("Permisos insuficientes.");
-    
-    if (Object.keys(AppState.cambiosCart).length > 0) {
-        if(!confirm("Tienes cambios sin guardar. Se perderán. ¿Continuar?")) return;
-        AppState.cambiosCart = {}; actualizarPanelMasivo();
-    }
-    
-    AppState.modoEdicion = !AppState.modoEdicion;
-    const btn = document.getElementById('btn-toggle-edicion');
-    
-    btn.classList.toggle('bg-blue-600', AppState.modoEdicion); btn.classList.toggle('bg-white', !AppState.modoEdicion);
-    btn.classList.toggle('text-white', AppState.modoEdicion); btn.classList.toggle('text-gray-800', !AppState.modoEdicion);
-    document.getElementById('txt-btn-edicion').innerText = AppState.modoEdicion ? "Cerrar Edición" : "Activar Edición";
-    
-    if (AppState.revisionData.length > 0 || AppState.configRev.mes) dibujarMatrizUI();
-});
+const btnGenReporte = document.getElementById('btn-generar-reporte');
+if(btnGenReporte) {
+    btnGenReporte.addEventListener('click', async () => {
+        const idC = document.getElementById('rev-camara').value;
+        const m = document.getElementById('rev-mes').value;
+        const a = document.getElementById('rev-anio').value;
+        
+        if (!idC) return alert("Seleccione cámara.");
+        
+        const btnPdf = document.getElementById('btn-descargar-pdf');
+        const btnImp = document.getElementById('btn-imprimir');
+        if(btnPdf) btnPdf.classList.add('hidden');
+        if(btnImp) btnImp.classList.add('hidden');
+
+        const cSel = AppState.camaras.find(c => c.id.toString() === idC.toString());
+        AppState.configRev = { mes: parseInt(m), anio: parseInt(a), usaHumedad: !!cSel.minHr };
+
+        const btn = document.getElementById('btn-generar-reporte');
+        const origHTML = btn.innerHTML;
+        btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i>';
+        
+        document.getElementById('tabla-container').classList.add('hidden');
+        const msg = document.getElementById('tabla-mensaje');
+        msg.classList.remove('hidden'); 
+        msg.innerHTML = '<i class="ph ph-spinner animate-spin text-4xl text-blue-500"></i><br>Procesando Matriz...';
+
+        try {
+            if (Object.keys(AppState.cambiosCart).length > 0) { AppState.cambiosCart = {}; actualizarPanelMasivo(); }
+            const res = await apiFetch({ action: 'getRegistrosRevision', idCamara: idC, mes: m, anio: a });
+            
+            if (res.status === 'success') {
+                AppState.revisionData = res.data; 
+                if (AppState.revisionData.length === 0 && !AppState.modoEdicion) {
+                    msg.innerHTML = '<i class="ph ph-folder-open text-5xl text-gray-400"></i><br>Sin registros.';
+                } else {
+                    msg.classList.add('hidden');
+                    document.getElementById('tabla-container').classList.remove('hidden');
+                    dibujarMatrizUI();
+                    if(btnPdf) btnPdf.classList.remove('hidden');
+                    if(btnImp) btnImp.classList.remove('hidden');
+                }
+            } else throw new Error(res.message);
+        } catch (e) { 
+            msg.innerHTML = 'Error de red. Intente nuevamente.'; 
+        } finally { 
+            btn.disabled = false; btn.innerHTML = origHTML; 
+        }
+    });
+}
+
+const btnToggleEdicion = document.getElementById('btn-toggle-edicion');
+if(btnToggleEdicion) {
+    btnToggleEdicion.addEventListener('click', () => {
+        const rols = ['JEFE', 'ADMINISTRADOR', 'SUPERVISOR', 'GERENTE'];
+        if (!AppState.user || !rols.includes(AppState.user.rol.toUpperCase())) return alert("Permisos insuficientes.");
+        
+        if (Object.keys(AppState.cambiosCart).length > 0) {
+            if(!confirm("Tienes cambios sin guardar. Se perderán. ¿Continuar?")) return;
+            AppState.cambiosCart = {}; actualizarPanelMasivo();
+        }
+        
+        AppState.modoEdicion = !AppState.modoEdicion;
+        const btn = document.getElementById('btn-toggle-edicion');
+        
+        btn.classList.toggle('bg-blue-600', AppState.modoEdicion); btn.classList.toggle('bg-white', !AppState.modoEdicion);
+        btn.classList.toggle('text-white', AppState.modoEdicion); btn.classList.toggle('text-gray-800', !AppState.modoEdicion);
+        document.getElementById('txt-btn-edicion').innerText = AppState.modoEdicion ? "Cerrar Edición" : "Activar Edición";
+        
+        if (AppState.revisionData.length > 0 || AppState.configRev.mes) dibujarMatrizUI();
+    });
+}
 
 function dibujarMatrizUI() {
     const data = AppState.revisionData, { anio, mes, usaHumedad } = AppState.configRev;
     const diasEnMes = new Date(anio, mes, 0).getDate();
     
-    // CORRECCIÓN DARK MODE: Cabeceras 
     let head = `<tr><th rowspan="2" class="sticky top-0 left-0 z-30 px-4 py-3 bg-blue-50 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 w-16 text-center border-b border-r border-gray-200 dark:border-gray-700 shadow-sm">DÍA</th>`;
     TODOS_LOS_TURNOS.forEach(t => head += `<th colspan="${usaHumedad?2:1}" class="sticky top-0 z-20 px-4 py-2 text-center border-b border-r border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 shadow-sm">${t}</th>`);
     head += '</tr>';
@@ -415,7 +502,7 @@ function dibujarMatrizUI() {
     document.getElementById('tabla-head').innerHTML = head;
 
     let body = '';
-    const roles = ['JEFE', 'ADMINISTRADOR', 'SUPERVISOR'];
+    const roles = ['JEFE', 'ADMINISTRADOR', 'SUPERVISOR', 'GERENTE'];
     const puedeEditar = AppState.user && roles.includes(AppState.user.rol.toUpperCase());
     const feriados = ['01/01', '01/05', '07/06', '29/06', '23/07', '28/07', '29/07','06/08', '30/08', '08/10', '01/11', '08/12', '09/12', '25/12'];
     const diasA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -424,7 +511,6 @@ function dibujarMatrizUI() {
         const fDate = new Date(anio, mes - 1, d); 
         const inactivo = (fDate.getDay() === 0 || fDate.getDay() === 6) || feriados.includes(`${d.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}`);
 
-        // CORRECCIÓN DARK MODE: Filas y Columnas base
         const trClass = inactivo ? 'bg-gray-100 dark:bg-gray-800/40 opacity-90' : 'hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors';
         const tdDiaClass = `sticky left-0 z-10 px-4 py-2 text-center border-r border-b border-gray-200 dark:border-gray-700 shadow-sm ${inactivo ? 'bg-gray-200 dark:bg-gray-800/80' : 'bg-gray-50 dark:bg-gray-800'}`;
         const colorAbrev = inactivo ? 'text-gray-400 dark:text-gray-500' : 'text-gray-500 dark:text-gray-400';
@@ -458,22 +544,19 @@ function dibujarMatrizUI() {
 
 function crearInput(v, f, t, tipo, puedeEditar, desv) {
     if (!AppState.modoEdicion || !puedeEditar) {
-        // CORRECCIÓN DARK MODE: Textos estáticos
         let style = v === '' ? 'text-gray-300 dark:text-gray-600' : (desv ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-800 dark:text-gray-300 font-semibold');
         if(tipo === 'hum' && v !== '') style = 'text-blue-600 dark:text-blue-400 font-medium';
         return `<span class="text-sm ${style}">${v === '' ? '-' : v + (tipo === 'temp' ? '°' : '%')}</span>`;
     }
-    // CORRECCIÓN DARK MODE: Inputs
     return `<input type="number" step="0.1" value="${v}" data-old="${v}" data-fecha="${f}" data-turno="${t}" data-tipo="${tipo}" placeholder="${tipo === 'temp' ? '°' : '%'}" class="w-full bg-transparent text-center focus:bg-blue-50 dark:focus:bg-blue-900/40 focus:ring-2 dark:focus:ring-blue-500 rounded font-bold text-sm text-gray-900 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-600 transition-colors outline-none" onblur="validarEdicionUI(this)">`;
 }
 
-// Edición y Validaciones
 async function validarEdicionUI(input) {
     const nv = input.value.trim(), ov = input.getAttribute('data-old').trim(), f = input.dataset.fecha, t = input.dataset.turno, tp = input.dataset.tipo, key = `${f}_${t}`;
     const cv = (AppState.cambiosCart[key] && AppState.cambiosCart[key][tp] !== undefined) ? AppState.cambiosCart[key][tp] : ov;
     if (nv === cv) return;
 
-    const camara = AppState.camaras.find(c => c.id == document.getElementById('rev-camara').value);
+    const camara = AppState.camaras.find(c => c.id.toString() === document.getElementById('rev-camara').value.toString());
     let isDesv = false, inc = "";
 
     if (nv !== '') {
@@ -487,7 +570,7 @@ async function validarEdicionUI(input) {
 
     if (isDesv || (ov !== '' && nv !== ov)) {
         inc = prompt(isDesv ? "Valores Fuera de Rango (HACCP). Ingrese medida correctiva:" : (nv===""?"Eliminación de registro. Motivo:":"Modificación Histórica. Motivo:"));
-        if (!inc || !inc.trim()) return input.value = cv; // Revert
+        if (!inc || !inc.trim()) return input.value = cv; 
     }
 
     if (!AppState.cambiosCart[key]) {
@@ -499,7 +582,6 @@ async function validarEdicionUI(input) {
     AppState.cambiosCart[key][tp] = nv;
     if (inc) AppState.cambiosCart[key].incidencia = inc;
 
-    // Colores de Edición Pendiente adaptados al Dark Mode
     input.classList.toggle('bg-yellow-100', input.value !== ov);
     input.classList.toggle('dark:bg-yellow-900/40', input.value !== ov);
     input.classList.toggle('text-yellow-900', input.value !== ov);
@@ -515,25 +597,34 @@ function actualizarPanelMasivo() {
     document.getElementById('txt-btn-guardar-masivo').innerText = `Guardar (${count})`;
 }
 
-async function guardarCambiosMasivos() {
-    const arr = Object.values(AppState.cambiosCart);
-    if (arr.length === 0) return;
-    for (let c of arr) if (c.temp === '' && c.hum !== '') return alert(`Falta Temp día ${c.fecha}`);
+const btnEjecutarMasivo = document.getElementById('btn-ejecutar-masivo');
+if(btnEjecutarMasivo) {
+    btnEjecutarMasivo.addEventListener('click', async () => {
+        const arr = Object.values(AppState.cambiosCart);
+        if (arr.length === 0) return;
+        for (let c of arr) if (c.temp === '' && c.hum !== '') return alert(`Falta Temperatura en el día ${c.fecha}`);
 
-    const btn = document.getElementById('btn-ejecutar-masivo'), orig = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
+        const btn = document.getElementById('btn-ejecutar-masivo');
+        const orig = btn.innerHTML;
+        btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
 
-    try {
-        const res = await apiFetch({ action: 'guardarLecturasMasivas', idCamara: document.getElementById('rev-camara').value, userName: AppState.user.nombre, cambios: arr });
-        if (res.status === 'success') {
-            AppState.cambiosCart = {}; actualizarPanelMasivo();
-            document.getElementById('btn-toggle-edicion').click(); document.getElementById('btn-generar-reporte').click(); 
-        } else alert("Error: " + res.message);
-    } catch (e) { alert("Error de red."); } finally { btn.disabled = false; btn.innerHTML = orig; }
+        try {
+            const res = await apiFetch({ action: 'guardarLecturasMasivas', idCamara: document.getElementById('rev-camara').value, userName: AppState.user.nombre, cambios: arr });
+            if (res.status === 'success') {
+                AppState.cambiosCart = {}; actualizarPanelMasivo();
+                document.getElementById('btn-toggle-edicion').click(); 
+                document.getElementById('btn-generar-reporte').click(); 
+            } else alert("Error: " + res.message);
+        } catch (e) { 
+            alert("Error de red."); 
+        } finally { 
+            btn.disabled = false; btn.innerHTML = orig; 
+        }
+    });
 }
 
 // ==========================================
-// 7. MOTOR DE IMPRESIÓN Y PDF
+// 7. MOTOR DE IMPRESIÓN AISLADA Y PDF
 // ==========================================
 function generarMoldeHACCP() {
     if(AppState.revisionData.length === 0) return false;
@@ -603,11 +694,8 @@ function generarMoldeHACCP() {
 
 function prepararImpresion() { 
     if(!generarMoldeHACCP()) return;
-
-    // 1. Extraemos SOLO el HTML del formato oficial (ignorando toda la interfaz web)
     const formatoHTML = document.getElementById('formato-oficial-impresion').outerHTML;
-
-    // 2. Creamos un iframe invisible "aislado" (Sandbox)
+    
     const printIframe = document.createElement('iframe');
     printIframe.style.position = 'absolute';
     printIframe.style.width = '0px';
@@ -615,7 +703,6 @@ function prepararImpresion() {
     printIframe.style.border = 'none';
     document.body.appendChild(printIframe);
 
-    // 3. Inyectamos el formato y los estilos puros dentro del iframe
     const doc = printIframe.contentWindow.document;
     doc.open();
     doc.write(`
@@ -633,10 +720,7 @@ function prepararImpresion() {
                     -webkit-print-color-adjust: exact; 
                     print-color-adjust: exact; 
                 }
-                /* Forzamos a que el formato se muestre en este lienzo */
                 #formato-oficial-impresion { display: block !important; }
-                
-                /* Estilos estrictos de tabla (Blanco y Negro para Auditoría) */
                 table { border-collapse: collapse !important; width: 100% !important; page-break-inside: auto; }
                 tr { page-break-inside: avoid; page-break-after: auto; }
                 th, td { border: 1px solid #000 !important; padding: 4px !important; color: #000 !important; }
@@ -650,21 +734,17 @@ function prepararImpresion() {
     `);
     doc.close();
 
-    // 4. Esperamos 800ms a que Tailwind cargue las clases y disparamos la impresora nativa
     setTimeout(() => {
         printIframe.contentWindow.focus();
         printIframe.contentWindow.print();
-        
-        // Limpiamos el iframe oculto después de imprimir para no saturar la memoria
-        setTimeout(() => {
-            document.body.removeChild(printIframe);
-        }, 1000);
+        setTimeout(() => document.body.removeChild(printIframe), 1000);
     }, 800);
 }
 
 function generarPDF() {
     if(!generarMoldeHACCP()) return;
-    const btn = document.getElementById('btn-descargar-pdf'), orig = btn.innerHTML;
+    const btn = document.getElementById('btn-descargar-pdf');
+    const orig = btn.innerHTML;
     btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i>';
 
     const el = document.getElementById('formato-oficial-impresion');
@@ -690,31 +770,37 @@ function generarPDF() {
 let chartIncidenciasInst = null;
 let chartTurnosInst = null;
 
-document.getElementById('btn-generar-dashboard').addEventListener('click', async () => {
-    const mes = document.getElementById('dash-mes').value;
-    const anio = document.getElementById('dash-anio').value;
-    
-    const btn = document.getElementById('btn-generar-dashboard');
-    const origHTML = btn.innerHTML;
-    btn.disabled = true; 
-    btn.innerHTML = '<i class="ph ph-spinner animate-spin text-lg"></i>';
-
-    try {
-        // Solicitamos al backend TODO el consolidado del mes
-        const res = await apiFetch({ action: 'getDashboardData', mes: mes, anio: anio });
+const btnGenerarDash = document.getElementById('btn-generar-dashboard');
+if(btnGenerarDash) {
+    btnGenerarDash.addEventListener('click', async () => {
+        const mes = document.getElementById('dash-mes').value;
+        const anio = document.getElementById('dash-anio').value;
         
-        if (res.status === 'success') {
-            renderizarDashboardGraficos(res.data);
-        } else {
-            alert("Error: " + res.message);
+        const btn = document.getElementById('btn-generar-dashboard');
+        const origHTML = btn.innerHTML;
+        btn.disabled = true; 
+        btn.innerHTML = '<i class="ph ph-spinner animate-spin text-lg"></i>';
+
+        try {
+            const res = await apiFetch({ action: 'getDashboardData', mes: mes, anio: anio });
+            
+            if (res.status === 'success') {
+                if (typeof Chart === 'undefined') {
+                    alert("Error: La librería de gráficos (Chart.js) no cargó correctamente en el HTML.");
+                } else {
+                    renderizarDashboardGraficos(res.data);
+                }
+            } else {
+                alert("Error de Servidor: " + res.message);
+            }
+        } catch (e) {
+            alert(e.message);
+        } finally {
+            btn.disabled = false; 
+            btn.innerHTML = origHTML;
         }
-    } catch (e) {
-        alert("Fallo de red al generar el Dashboard.");
-    } finally {
-        btn.disabled = false; 
-        btn.innerHTML = origHTML;
-    }
-});
+    });
+}
 
 function renderizarDashboardGraficos(registros) {
     let totalLecturas = registros.length;
@@ -722,18 +808,14 @@ function renderizarDashboardGraficos(registros) {
     let conteoCamaras = {};
     let conteoTurnos = {};
 
-    // 1. Procesar Data
     registros.forEach(r => {
         if (r.estado === 'DESVIACION') {
             totalDesviaciones++;
-            // Sumar al conteo de la cámara
             conteoCamaras[r.camaraNombre] = (conteoCamaras[r.camaraNombre] || 0) + 1;
-            // Sumar al conteo del turno
             conteoTurnos[r.turno] = (conteoTurnos[r.turno] || 0) + 1;
         }
     });
 
-    // 2. Actualizar Tarjetas KPI
     let porcentajeOk = totalLecturas > 0 ? (((totalLecturas - totalDesviaciones) / totalLecturas) * 100).toFixed(1) : 0;
     document.getElementById('kpi-cumplimiento').innerText = totalLecturas > 0 ? `${porcentajeOk}% OK` : 'Sin datos';
     document.getElementById('kpi-incidencias').innerText = totalDesviaciones;
@@ -745,55 +827,55 @@ function renderizarDashboardGraficos(registros) {
     }
     document.getElementById('kpi-critica').innerText = camaraPico;
 
-    // Colores para Dark Mode y Light Mode
     const isDark = document.documentElement.classList.contains('dark');
     const textColor = isDark ? '#e2e8f0' : '#475569';
     const gridColor = isDark ? '#334155' : '#e2e8f0';
 
-    // 3. Gráfico de Barras: Cámaras más críticas
-    const ctxCamaras = document.getElementById('chartIncidencias').getContext('2d');
-    if (chartIncidenciasInst) chartIncidenciasInst.destroy();
-    
-    chartIncidenciasInst = new Chart(ctxCamaras, {
-        type: 'bar',
-        data: {
-            labels: Object.keys(conteoCamaras),
-            datasets: [{
-                label: 'N° de Desviaciones HACCP',
-                data: Object.values(conteoCamaras),
-                backgroundColor: 'rgba(239, 68, 68, 0.7)',
-                borderColor: 'rgb(239, 68, 68)',
-                borderWidth: 1,
-                borderRadius: 4
-            }]
-        },
-        options: { 
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: textColor } } },
-            scales: {
-                y: { ticks: { color: textColor, stepSize: 1 }, grid: { color: gridColor } },
-                x: { ticks: { color: textColor }, grid: { display: false } }
+    const ctxCamaras = document.getElementById('chartIncidencias');
+    if(ctxCamaras) {
+        if (chartIncidenciasInst) chartIncidenciasInst.destroy();
+        chartIncidenciasInst = new Chart(ctxCamaras.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: Object.keys(conteoCamaras),
+                datasets: [{
+                    label: 'N° de Desviaciones HACCP',
+                    data: Object.values(conteoCamaras),
+                    backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                    borderColor: 'rgb(239, 68, 68)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: { 
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: textColor } } },
+                scales: {
+                    y: { ticks: { color: textColor, stepSize: 1 }, grid: { color: gridColor } },
+                    x: { ticks: { color: textColor }, grid: { display: false } }
+                }
             }
-        }
-    });
+        });
+    }
 
-    // 4. Gráfico de Dona: Alertas por Turnos
-    const ctxTurnos = document.getElementById('chartTurnos').getContext('2d');
-    if (chartTurnosInst) chartTurnosInst.destroy();
-
-    chartTurnosInst = new Chart(ctxTurnos, {
-        type: 'doughnut',
-        data: {
-            labels: Object.keys(conteoTurnos),
-            datasets: [{
-                data: Object.values(conteoTurnos),
-                backgroundColor: ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#64748b'],
-                borderWidth: isDark ? 0 : 2
-            }]
-        },
-        options: { 
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { position: 'right', labels: { color: textColor } } }
-        }
-    });
+    const ctxTurnos = document.getElementById('chartTurnos');
+    if(ctxTurnos) {
+        if (chartTurnosInst) chartTurnosInst.destroy();
+        chartTurnosInst = new Chart(ctxTurnos.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(conteoTurnos),
+                datasets: [{
+                    data: Object.values(conteoTurnos),
+                    backgroundColor: ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#64748b'],
+                    borderWidth: isDark ? 0 : 2,
+                    borderColor: isDark ? '#1e293b' : '#ffffff'
+                }]
+            },
+            options: { 
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'right', labels: { color: textColor } } }
+            }
+        });
+    }
 }
