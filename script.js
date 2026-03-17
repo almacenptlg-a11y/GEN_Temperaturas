@@ -281,28 +281,46 @@ document.getElementById('form-lectura-camara').addEventListener('submit', async 
 // ==========================================
 document.getElementById('tab-registro').addEventListener('click', () => switchTab('registro'));
 document.getElementById('tab-revision').addEventListener('click', () => switchTab('revision'));
+document.getElementById('tab-dashboard').addEventListener('click', () => switchTab('dashboard')); // NUEVO
 
 function switchTab(tab) {
-    const vReg = document.getElementById('vista-registro'), vRev = document.getElementById('vista-revision');
-    const tReg = document.getElementById('tab-registro'), tRev = document.getElementById('tab-revision');
+    const vReg = document.getElementById('vista-registro'), 
+          vRev = document.getElementById('vista-revision'),
+          vDash = document.getElementById('vista-dashboard'); // NUEVO
+          
+    const tReg = document.getElementById('tab-registro'), 
+          tRev = document.getElementById('tab-revision'),
+          tDash = document.getElementById('tab-dashboard'); // NUEVO
+
     const actClass = ['border-blue-600','text-blue-600','dark:text-blue-400'];
     const inactClass = ['border-transparent','text-gray-500','dark:text-gray-400'];
 
-    if (tab === 'registro') {
-        vReg.classList.replace('hidden', 'block'); vRev.classList.replace('flex', 'hidden'); 
-        tReg.classList.add(...actClass); tReg.classList.remove(...inactClass);
-        tRev.classList.add(...inactClass); tRev.classList.remove(...actClass);
-    } else {
-        vRev.classList.replace('hidden', 'flex'); vReg.classList.replace('block', 'hidden');
-        tRev.classList.add(...actClass); tRev.classList.remove(...inactClass);
-        tReg.classList.add(...inactClass); tReg.classList.remove(...actClass);
+    // Ocultar todas las vistas y limpiar estilos
+    [vReg, vRev, vDash].forEach(v => { v.classList.replace('block', 'hidden'); v.classList.replace('flex', 'hidden'); });
+    [tReg, tRev, tDash].forEach(t => { t.classList.add(...inactClass); t.classList.remove(...actClass); });
 
+    // Mostrar vista seleccionada
+    if (tab === 'registro') {
+        vReg.classList.replace('hidden', 'block'); 
+        tReg.classList.add(...actClass); tReg.classList.remove(...inactClass);
+    } else if (tab === 'revision') {
+        vRev.classList.replace('hidden', 'flex'); 
+        tRev.classList.add(...actClass); tRev.classList.remove(...inactClass);
         const revC = document.getElementById('rev-camara');
-        if (revC.options.length <= 1) {
+        if (revC.options.length <= 1 && AppState.camaras.length > 0) {
             revC.innerHTML = '<option value="">Seleccione...</option>' + AppState.camaras.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
             const hoy = new Date();
             document.getElementById('rev-mes').value = hoy.getMonth() + 1;
             document.getElementById('rev-anio').value = hoy.getFullYear();
+        }
+    } else if (tab === 'dashboard') {
+        vDash.classList.replace('hidden', 'flex'); 
+        tDash.classList.add(...actClass); tDash.classList.remove(...inactClass);
+        // Setear fecha por defecto si está vacío
+        if(!document.getElementById('dash-mes').value) {
+            const hoy = new Date();
+            document.getElementById('dash-mes').value = hoy.getMonth() + 1;
+            document.getElementById('dash-anio').value = hoy.getFullYear();
         }
     }
 }
@@ -604,5 +622,119 @@ function generarPDF() {
     }).from(el).save().then(() => {
         el.classList.add('hidden'); el.style.display = 'none';
         btn.disabled = false; btn.innerHTML = orig;
+    });
+}
+
+// ==========================================
+// 8. DASHBOARD ANALÍTICO (BI Y CHART.JS)
+// ==========================================
+let chartIncidenciasInst = null;
+let chartTurnosInst = null;
+
+document.getElementById('btn-generar-dashboard').addEventListener('click', async () => {
+    const mes = document.getElementById('dash-mes').value;
+    const anio = document.getElementById('dash-anio').value;
+    
+    const btn = document.getElementById('btn-generar-dashboard');
+    const origHTML = btn.innerHTML;
+    btn.disabled = true; 
+    btn.innerHTML = '<i class="ph ph-spinner animate-spin text-lg"></i>';
+
+    try {
+        // Solicitamos al backend TODO el consolidado del mes
+        const res = await apiFetch({ action: 'getDashboardData', mes: mes, anio: anio });
+        
+        if (res.status === 'success') {
+            renderizarDashboardGraficos(res.data);
+        } else {
+            alert("Error: " + res.message);
+        }
+    } catch (e) {
+        alert("Fallo de red al generar el Dashboard.");
+    } finally {
+        btn.disabled = false; 
+        btn.innerHTML = origHTML;
+    }
+});
+
+function renderizarDashboardGraficos(registros) {
+    let totalLecturas = registros.length;
+    let totalDesviaciones = 0;
+    let conteoCamaras = {};
+    let conteoTurnos = {};
+
+    // 1. Procesar Data
+    registros.forEach(r => {
+        if (r.estado === 'DESVIACION') {
+            totalDesviaciones++;
+            // Sumar al conteo de la cámara
+            conteoCamaras[r.camaraNombre] = (conteoCamaras[r.camaraNombre] || 0) + 1;
+            // Sumar al conteo del turno
+            conteoTurnos[r.turno] = (conteoTurnos[r.turno] || 0) + 1;
+        }
+    });
+
+    // 2. Actualizar Tarjetas KPI
+    let porcentajeOk = totalLecturas > 0 ? (((totalLecturas - totalDesviaciones) / totalLecturas) * 100).toFixed(1) : 0;
+    document.getElementById('kpi-cumplimiento').innerText = totalLecturas > 0 ? `${porcentajeOk}% OK` : 'Sin datos';
+    document.getElementById('kpi-incidencias').innerText = totalDesviaciones;
+    
+    let camaraPico = "-";
+    let maxDesv = 0;
+    for (const [camara, count] of Object.entries(conteoCamaras)) {
+        if (count > maxDesv) { maxDesv = count; camaraPico = camara; }
+    }
+    document.getElementById('kpi-critica').innerText = camaraPico;
+
+    // Colores para Dark Mode y Light Mode
+    const isDark = document.documentElement.classList.contains('dark');
+    const textColor = isDark ? '#e2e8f0' : '#475569';
+    const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+    // 3. Gráfico de Barras: Cámaras más críticas
+    const ctxCamaras = document.getElementById('chartIncidencias').getContext('2d');
+    if (chartIncidenciasInst) chartIncidenciasInst.destroy();
+    
+    chartIncidenciasInst = new Chart(ctxCamaras, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(conteoCamaras),
+            datasets: [{
+                label: 'N° de Desviaciones HACCP',
+                data: Object.values(conteoCamaras),
+                backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                borderColor: 'rgb(239, 68, 68)',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: { 
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: textColor } } },
+            scales: {
+                y: { ticks: { color: textColor, stepSize: 1 }, grid: { color: gridColor } },
+                x: { ticks: { color: textColor }, grid: { display: false } }
+            }
+        }
+    });
+
+    // 4. Gráfico de Dona: Alertas por Turnos
+    const ctxTurnos = document.getElementById('chartTurnos').getContext('2d');
+    if (chartTurnosInst) chartTurnosInst.destroy();
+
+    chartTurnosInst = new Chart(ctxTurnos, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(conteoTurnos),
+            datasets: [{
+                data: Object.values(conteoTurnos),
+                backgroundColor: ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#64748b'],
+                borderWidth: isDark ? 0 : 2
+            }]
+        },
+        options: { 
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'right', labels: { color: textColor } } }
+        }
     });
 }
