@@ -78,7 +78,7 @@ function actualizarUIUsuario() {
         }
     }
 
-    // NUEVO: CONTROL DE ACCESO VISUAL AL GESTOR DE CÁMARAS
+    // CONTROL DE ACCESO VISUAL AL GESTOR DE CÁMARAS
     const btnGestor = document.getElementById('btn-abrir-gestor-camaras');
     if (btnGestor) {
         if (rolesDashboard.includes(AppState.user.rol.toUpperCase())) {
@@ -87,7 +87,6 @@ function actualizarUIUsuario() {
             btnGestor.classList.add('hidden'); 
         }
     }
-
 }
 
 function configurarFechaInicial() {
@@ -976,38 +975,53 @@ function cargarAreasEnGestor() {
     if(el) {
         el.addEventListener('change', (e) => {
             const inputOtro = document.getElementById(`${id}-otro`);
-            if (e.target.value === 'OTRO') {
-                inputOtro.classList.remove('hidden');
-                inputOtro.setAttribute('required', 'true');
-                inputOtro.focus();
-            } else {
-                inputOtro.classList.add('hidden');
-                inputOtro.removeAttribute('required');
-                inputOtro.value = '';
+            if (inputOtro) {
+                if (e.target.value === 'OTRO') {
+                    inputOtro.classList.remove('hidden');
+                    inputOtro.setAttribute('required', 'true');
+                    inputOtro.focus();
+                } else {
+                    inputOtro.classList.add('hidden');
+                    inputOtro.removeAttribute('required');
+                    inputOtro.value = '';
+                }
             }
         });
     }
 });
 
+// ABRIR GESTOR (CON BLINDAJE CONTRA NULLS)
 if (btnAbrirGestor) {
     btnAbrirGestor.addEventListener('click', () => {
-        selectorGestor.innerHTML = '<option value="NEW">✨ CREAR NUEVA CÁMARA</option>' + 
-            AppState.camaras.map(c => `<option value="${c.id}">✏️ Editar: ${c.nombre}</option>`).join('');
+        if (selectorGestor) {
+            selectorGestor.innerHTML = '<option value="NEW">✨ CREAR NUEVA CÁMARA</option>' + 
+                AppState.camaras.map(c => `<option value="${c.id}">✏️ Editar: ${c.nombre}</option>`).join('');
+        }
         
-        formGestor.reset();
-        document.getElementById('gestor-id').value = '';
+        if (formGestor) formGestor.reset();
+        
+        const inId = document.getElementById('gestor-id');
+        if (inId) inId.value = '';
+        
         cargarAreasEnGestor(); 
-        document.getElementById('gestor-tipo-otro').classList.add('hidden');
-        document.getElementById('gestor-area-otro').classList.add('hidden');
-        modalGestor.classList.remove('hidden');
+        
+        const tipoOtro = document.getElementById('gestor-tipo-otro');
+        const areaOtro = document.getElementById('gestor-area-otro');
+        if (tipoOtro) { tipoOtro.classList.add('hidden'); tipoOtro.removeAttribute('required'); }
+        if (areaOtro) { areaOtro.classList.add('hidden'); areaOtro.removeAttribute('required'); }
+        
+        if (modalGestor) modalGestor.classList.remove('hidden');
     });
 }
 
+// CERRAR GESTOR
 [btnCerrarGestor, btnCancelarGestor].forEach(btn => {
-    if(btn) btn.addEventListener('click', () => modalGestor.classList.add('hidden'));
+    if(btn) btn.addEventListener('click', () => {
+        if (modalGestor) modalGestor.classList.add('hidden');
+    });
 });
 
-// Lógica al seleccionar crear o editar
+// LÓGICA AL SELECCIONAR CREAR O EDITAR (CON BLINDAJE)
 if (selectorGestor) {
     selectorGestor.addEventListener('change', (e) => {
         const val = e.target.value;
@@ -1015,52 +1029,61 @@ if (selectorGestor) {
         const areaOtro = document.getElementById('gestor-area-otro');
 
         if (val === 'NEW') {
-            formGestor.reset();
-            document.getElementById('gestor-id').value = '';
-            tipoOtro.classList.add('hidden'); tipoOtro.removeAttribute('required');
-            areaOtro.classList.add('hidden'); areaOtro.removeAttribute('required');
+            if (formGestor) formGestor.reset();
+            const inId = document.getElementById('gestor-id');
+            if (inId) inId.value = '';
+            
+            if (tipoOtro) { tipoOtro.classList.add('hidden'); tipoOtro.removeAttribute('required'); }
+            if (areaOtro) { areaOtro.classList.add('hidden'); areaOtro.removeAttribute('required'); }
         } else {
             const c = AppState.camaras.find(cam => cam.id.toString() === val);
             if(c) {
-                document.getElementById('gestor-id').value = c.id;
-                document.getElementById('gestor-nombre').value = c.nombre;
+                const inId = document.getElementById('gestor-id');
+                const inNombre = document.getElementById('gestor-nombre');
+                if (inId) inId.value = c.id;
+                if (inNombre) inNombre.value = c.nombre;
                 
                 // Mapeo dinámico del Tipo
                 const tipoSelect = document.getElementById('gestor-tipo');
-                let foundTipo = Array.from(tipoSelect.options).some(opt => opt.value === c.tipo);
-                
-                if(!foundTipo && c.tipo) {
-                    tipoSelect.value = 'OTRO';
-                    tipoOtro.value = c.tipo;
-                    tipoOtro.classList.remove('hidden'); tipoOtro.setAttribute('required', 'true');
-                } else {
-                    tipoSelect.value = c.tipo;
-                    tipoOtro.classList.add('hidden'); tipoOtro.removeAttribute('required');
+                if (tipoSelect) {
+                    let foundTipo = Array.from(tipoSelect.options).some(opt => opt.value === c.tipo);
+                    if(!foundTipo && c.tipo) {
+                        tipoSelect.value = 'OTRO';
+                        if (tipoOtro) { tipoOtro.value = c.tipo; tipoOtro.classList.remove('hidden'); tipoOtro.setAttribute('required', 'true'); }
+                    } else {
+                        tipoSelect.value = c.tipo;
+                        if (tipoOtro) { tipoOtro.classList.add('hidden'); tipoOtro.removeAttribute('required'); }
+                    }
                 }
 
                 // Mapeo dinámico del Área
                 const areaSelect = document.getElementById('gestor-area');
-                let foundArea = Array.from(areaSelect.options).some(opt => opt.value === c.area);
-                
-                if(!foundArea && c.area) {
-                    areaSelect.value = 'OTRO';
-                    areaOtro.value = c.area;
-                    areaOtro.classList.remove('hidden'); areaOtro.setAttribute('required', 'true');
-                } else {
-                    areaSelect.value = c.area || '';
-                    areaOtro.classList.add('hidden'); areaOtro.removeAttribute('required');
+                if (areaSelect) {
+                    let foundArea = Array.from(areaSelect.options).some(opt => opt.value === c.area);
+                    if(!foundArea && c.area) {
+                        areaSelect.value = 'OTRO';
+                        if (areaOtro) { areaOtro.value = c.area; areaOtro.classList.remove('hidden'); areaOtro.setAttribute('required', 'true'); }
+                    } else {
+                        areaSelect.value = c.area || '';
+                        if (areaOtro) { areaOtro.classList.add('hidden'); areaOtro.removeAttribute('required'); }
+                    }
                 }
                 
-                document.getElementById('gestor-min-temp').value = c.minTemp;
-                document.getElementById('gestor-max-temp').value = c.maxTemp;
-                document.getElementById('gestor-min-hr').value = c.minHr ? (c.minHr<=1 ? c.minHr*100 : c.minHr) : '';
-                document.getElementById('gestor-max-hr').value = c.maxHr ? (c.maxHr<=1 ? c.maxHr*100 : c.maxHr) : '';
+                const inMinT = document.getElementById('gestor-min-temp');
+                const inMaxT = document.getElementById('gestor-max-temp');
+                const inMinH = document.getElementById('gestor-min-hr');
+                const inMaxH = document.getElementById('gestor-max-hr');
+                
+                if (inMinT) inMinT.value = c.minTemp;
+                if (inMaxT) inMaxT.value = c.maxTemp;
+                if (inMinH) inMinH.value = c.minHr ? (c.minHr<=1 ? c.minHr*100 : c.minHr) : '';
+                if (inMaxH) inMaxH.value = c.maxHr ? (c.maxHr<=1 ? c.maxHr*100 : c.maxHr) : '';
             }
         }
     });
 }
 
-// Guardar los cambios
+// GUARDAR LOS CAMBIOS
 if (formGestor) {
     formGestor.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1070,10 +1093,12 @@ if (formGestor) {
 
         // Determinar valores finales de Tipo y Área (Si es "OTRO", toma el valor del input oculto)
         const tSel = document.getElementById('gestor-tipo').value;
-        const tipoFinal = (tSel === 'OTRO') ? document.getElementById('gestor-tipo-otro').value.toUpperCase().trim() : tSel;
+        const inTipoOtro = document.getElementById('gestor-tipo-otro');
+        const tipoFinal = (tSel === 'OTRO' && inTipoOtro) ? inTipoOtro.value.toUpperCase().trim() : tSel;
         
         const aSel = document.getElementById('gestor-area').value;
-        const areaFinal = (aSel === 'OTRO') ? document.getElementById('gestor-area-otro').value.toUpperCase().trim() : aSel;
+        const inAreaOtro = document.getElementById('gestor-area-otro');
+        const areaFinal = (aSel === 'OTRO' && inAreaOtro) ? inAreaOtro.value.toUpperCase().trim() : aSel;
 
         const camaraData = {
             id: document.getElementById('gestor-id').value,
@@ -1095,7 +1120,7 @@ if (formGestor) {
             const res = await apiFetch({ action: 'guardarCamaraConfig', camaraData: camaraData });
             if (res.status === 'success') {
                 alert("¡Guardado Exitoso! La interfaz se actualizará.");
-                modalGestor.classList.add('hidden');
+                if (modalGestor) modalGestor.classList.add('hidden');
                 cargarCamaras(); 
             } else {
                 alert("Error de Servidor: " + res.message);
