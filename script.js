@@ -542,50 +542,96 @@ function dibujarMatrizUI() {
     document.getElementById('tabla-body').innerHTML = body;
 }
 
+// ==========================================
+// FUNCIÓN RESTAURADA: COMPORTAMIENTO Y ENTER
+// ==========================================
 function crearInput(v, f, t, tipo, puedeEditar, desv) {
     if (!AppState.modoEdicion || !puedeEditar) {
         let style = v === '' ? 'text-gray-300 dark:text-gray-600' : (desv ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-800 dark:text-gray-300 font-semibold');
         if(tipo === 'hum' && v !== '') style = 'text-blue-600 dark:text-blue-400 font-medium';
         return `<span class="text-sm ${style}">${v === '' ? '-' : v + (tipo === 'temp' ? '°' : '%')}</span>`;
     }
-    return `<input type="number" step="0.1" value="${v}" data-old="${v}" data-fecha="${f}" data-turno="${t}" data-tipo="${tipo}" placeholder="${tipo === 'temp' ? '°' : '%'}" class="w-full bg-transparent text-center focus:bg-blue-50 dark:focus:bg-blue-900/40 focus:ring-2 dark:focus:ring-blue-500 rounded font-bold text-sm text-gray-900 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-600 transition-colors outline-none" onblur="validarEdicionUI(this)">`;
+    
+    // Se restauró el onkeydown para el Enter, el cursor-text y el control de color si está vacío
+    return `<input type="number" step="0.1" value="${v}" data-old="${v}" data-fecha="${f}" data-turno="${t}" data-tipo="${tipo}" placeholder="${tipo === 'temp' ? '°' : '%'}" class="w-full bg-transparent text-center focus:bg-blue-50 dark:focus:bg-blue-900/40 focus:ring-2 dark:focus:ring-blue-500 rounded font-bold text-sm cursor-text ${v === '' ? 'text-gray-900 dark:text-gray-100' : ''} placeholder-gray-300 dark:placeholder-gray-600 transition-colors outline-none" onblur="validarEdicionUI(this)" onkeydown="if(event.key==='Enter') this.blur()">`;
 }
 
 async function validarEdicionUI(input) {
-    const nv = input.value.trim(), ov = input.getAttribute('data-old').trim(), f = input.dataset.fecha, t = input.dataset.turno, tp = input.dataset.tipo, key = `${f}_${t}`;
+    const nv = input.value.trim();
+    const ov = input.getAttribute('data-old').trim();
+    const f = input.dataset.fecha;
+    const t = input.dataset.turno;
+    const tp = input.dataset.tipo;
+    const key = `${f}_${t}`;
+    
+    // Valor actual en el "carrito" de cambios (si ya lo había editado antes sin guardar)
     const cv = (AppState.cambiosCart[key] && AppState.cambiosCart[key][tp] !== undefined) ? AppState.cambiosCart[key][tp] : ov;
+    
     if (nv === cv) return;
 
     const camara = AppState.camaras.find(c => c.id.toString() === document.getElementById('rev-camara').value.toString());
-    let isDesv = false, inc = "";
+    let isDesv = false;
+    let inc = "";
 
+    // Validación de Rangos HACCP
     if (nv !== '') {
         const num = parseFloat(nv);
         if (tp === 'temp' && (num < camara.minTemp || num > camara.maxTemp)) isDesv = true;
         if (tp === 'hum' && camara.minHr) {
-             const mH = camara.minHr <= 1 ? camara.minHr * 100 : camara.minHr, xH = camara.maxHr <= 1 ? camara.maxHr * 100 : camara.maxHr;
+             const mH = camara.minHr <= 1 ? camara.minHr * 100 : camara.minHr;
+             const xH = camara.maxHr <= 1 ? camara.maxHr * 100 : camara.maxHr;
              if (num < mH || num > xH) isDesv = true;
         }
     }
 
+    // Si hay desviación, modificación histórica o borrado, exigir justificación
     if (isDesv || (ov !== '' && nv !== ov)) {
-        inc = prompt(isDesv ? "Valores Fuera de Rango (HACCP). Ingrese medida correctiva:" : (nv===""?"Eliminación de registro. Motivo:":"Modificación Histórica. Motivo:"));
-        if (!inc || !inc.trim()) return input.value = cv; 
+        let mensajePrompt = "Modificación Histórica. Indique motivo:";
+        if (isDesv) mensajePrompt = "Valores Fuera de Rango (HACCP). Ingrese medida correctiva obligatoria:";
+        if (nv === "") mensajePrompt = "Eliminación de registro. Indique el motivo:";
+
+        inc = prompt(mensajePrompt);
+        
+        // Si cancela el prompt o lo deja vacío, REVERTIMOS el valor al que tenía
+        if (!inc || !inc.trim()) {
+            input.value = cv;
+            return; 
+        }
     }
 
+    // Registrar en el "carrito" de cambios masivos
     if (!AppState.cambiosCart[key]) {
         const tr = input.closest('tr');
         const iT = tr.querySelector(`input[data-fecha="${f}"][data-turno="${t}"][data-tipo="temp"]`);
         const iH = tr.querySelector(`input[data-fecha="${f}"][data-turno="${t}"][data-tipo="hum"]`);
-        AppState.cambiosCart[key] = { fecha: f, turno: t, temp: iT?iT.getAttribute('data-old'):'', hum: iH?iH.getAttribute('data-old'):'', incidencia: '' };
+        AppState.cambiosCart[key] = { 
+            fecha: f, 
+            turno: t, 
+            temp: iT ? iT.getAttribute('data-old') : '', 
+            hum: iH ? iH.getAttribute('data-old') : '', 
+            incidencia: '' 
+        };
     }
+    
     AppState.cambiosCart[key][tp] = nv;
     if (inc) AppState.cambiosCart[key].incidencia = inc;
 
-    input.classList.toggle('bg-yellow-100', input.value !== ov);
-    input.classList.toggle('dark:bg-yellow-900/40', input.value !== ov);
-    input.classList.toggle('text-yellow-900', input.value !== ov);
-    input.classList.toggle('dark:text-yellow-300', input.value !== ov);
+    // Lógica de Restauración Visual: Si el usuario tipeó el mismo valor original, quitar colores de alerta
+    const iTemp = input.closest('tr').querySelector(`input[data-fecha="${f}"][data-turno="${t}"][data-tipo="temp"]`);
+    const iHum = input.closest('tr').querySelector(`input[data-fecha="${f}"][data-turno="${t}"][data-tipo="hum"]`);
+    
+    const isTempOriginal = (iTemp ? iTemp.getAttribute('data-old') : '') === (iTemp ? iTemp.value.trim() : '');
+    const isHumOriginal = (iHum ? iHum.getAttribute('data-old') : '') === (iHum ? iHum.value.trim() : '');
+
+    if (isTempOriginal && isHumOriginal) {
+        // Se arrepintió y volvió a los valores originales, limpiamos el carrito
+        delete AppState.cambiosCart[key]; 
+        if(iTemp) iTemp.classList.remove('bg-yellow-100', 'text-yellow-900', 'dark:bg-yellow-900/40', 'dark:text-yellow-300'); 
+        if(iHum) iHum.classList.remove('bg-yellow-100', 'text-yellow-900', 'dark:bg-yellow-900/40', 'dark:text-yellow-300');
+    } else { 
+        // Cambió de verdad, pintar de amarillo
+        input.classList.add('bg-yellow-100', 'text-yellow-900', 'dark:bg-yellow-900/40', 'dark:text-yellow-300'); 
+    }
     
     actualizarPanelMasivo();
 }
@@ -593,34 +639,43 @@ async function validarEdicionUI(input) {
 function actualizarPanelMasivo() {
     const count = Object.keys(AppState.cambiosCart).length;
     const btn = document.getElementById('btn-ejecutar-masivo');
-    btn.classList.toggle('hidden', count === 0); btn.classList.toggle('flex', count > 0);
-    document.getElementById('txt-btn-guardar-masivo').innerText = `Guardar (${count})`;
+    if (btn) {
+        btn.classList.toggle('hidden', count === 0); 
+        btn.classList.toggle('flex', count > 0);
+    }
+    const txtGuardar = document.getElementById('txt-btn-guardar-masivo');
+    if (txtGuardar) {
+        txtGuardar.innerText = `Guardar (${count})`;
+    }
 }
 
-const btnEjecutarMasivo = document.getElementById('btn-ejecutar-masivo');
-if(btnEjecutarMasivo) {
-    btnEjecutarMasivo.addEventListener('click', async () => {
-        const arr = Object.values(AppState.cambiosCart);
-        if (arr.length === 0) return;
-        for (let c of arr) if (c.temp === '' && c.hum !== '') return alert(`Falta Temperatura en el día ${c.fecha}`);
+// ==========================================
+// FUNCIÓN GLOBAL RESTAURADA PARA HTML (ONCLICK)
+// ==========================================
+async function guardarCambiosMasivos() {
+    const arr = Object.values(AppState.cambiosCart);
+    if (arr.length === 0) return;
+    for (let c of arr) if (c.temp === '' && c.hum !== '') return alert(`Falta Temperatura en el día ${c.fecha}`);
 
-        const btn = document.getElementById('btn-ejecutar-masivo');
-        const orig = btn.innerHTML;
-        btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
+    const btn = document.getElementById('btn-ejecutar-masivo');
+    const orig = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
 
-        try {
-            const res = await apiFetch({ action: 'guardarLecturasMasivas', idCamara: document.getElementById('rev-camara').value, userName: AppState.user.nombre, cambios: arr });
-            if (res.status === 'success') {
-                AppState.cambiosCart = {}; actualizarPanelMasivo();
-                document.getElementById('btn-toggle-edicion').click(); 
-                document.getElementById('btn-generar-reporte').click(); 
-            } else alert("Error: " + res.message);
-        } catch (e) { 
-            alert("Error de red."); 
-        } finally { 
-            btn.disabled = false; btn.innerHTML = orig; 
+    try {
+        const res = await apiFetch({ action: 'guardarLecturasMasivas', idCamara: document.getElementById('rev-camara').value, userName: AppState.user.nombre, cambios: arr });
+        if (res.status === 'success') {
+            AppState.cambiosCart = {}; 
+            actualizarPanelMasivo();
+            document.getElementById('btn-toggle-edicion').click(); 
+            document.getElementById('btn-generar-reporte').click(); 
+        } else {
+            alert("Error: " + res.message);
         }
-    });
+    } catch (e) { 
+        alert("Error de red al guardar los cambios masivos."); 
+    } finally { 
+        btn.disabled = false; btn.innerHTML = orig; 
+    }
 }
 
 // ==========================================
