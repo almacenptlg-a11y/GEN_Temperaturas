@@ -767,7 +767,8 @@ function prepararImpresion() {
             <title>Impresión de Control Operativo</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <style>
-                @page { size: landscape; margin: 10mm; }
+                /* Quitamos 'size: landscape;' para que el usuario elija en la ventana de impresión */
+                @page { margin: 10mm; } 
                 body { 
                     background-color: white !important; 
                     color: black; 
