@@ -601,7 +601,66 @@ function generarMoldeHACCP() {
     return true; 
 }
 
-function prepararImpresion() { if(generarMoldeHACCP()) setTimeout(() => window.print(), 400); }
+function prepararImpresion() { 
+    if(!generarMoldeHACCP()) return;
+
+    // 1. Extraemos SOLO el HTML del formato oficial (ignorando toda la interfaz web)
+    const formatoHTML = document.getElementById('formato-oficial-impresion').outerHTML;
+
+    // 2. Creamos un iframe invisible "aislado" (Sandbox)
+    const printIframe = document.createElement('iframe');
+    printIframe.style.position = 'absolute';
+    printIframe.style.width = '0px';
+    printIframe.style.height = '0px';
+    printIframe.style.border = 'none';
+    document.body.appendChild(printIframe);
+
+    // 3. Inyectamos el formato y los estilos puros dentro del iframe
+    const doc = printIframe.contentWindow.document;
+    doc.open();
+    doc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Impresión de Control Operativo</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+                @page { size: landscape; margin: 10mm; }
+                body { 
+                    background-color: white !important; 
+                    color: black; 
+                    font-family: sans-serif; 
+                    -webkit-print-color-adjust: exact; 
+                    print-color-adjust: exact; 
+                }
+                /* Forzamos a que el formato se muestre en este lienzo */
+                #formato-oficial-impresion { display: block !important; }
+                
+                /* Estilos estrictos de tabla (Blanco y Negro para Auditoría) */
+                table { border-collapse: collapse !important; width: 100% !important; page-break-inside: auto; }
+                tr { page-break-inside: avoid; page-break-after: auto; }
+                th, td { border: 1px solid #000 !important; padding: 4px !important; color: #000 !important; }
+                th { background-color: #f3f4f6 !important; }
+            </style>
+        </head>
+        <body>
+            ${formatoHTML}
+        </body>
+        </html>
+    `);
+    doc.close();
+
+    // 4. Esperamos 800ms a que Tailwind cargue las clases y disparamos la impresora nativa
+    setTimeout(() => {
+        printIframe.contentWindow.focus();
+        printIframe.contentWindow.print();
+        
+        // Limpiamos el iframe oculto después de imprimir para no saturar la memoria
+        setTimeout(() => {
+            document.body.removeChild(printIframe);
+        }, 1000);
+    }, 800);
+}
 
 function generarPDF() {
     if(!generarMoldeHACCP()) return;
