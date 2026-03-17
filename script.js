@@ -574,27 +574,37 @@ async function validarEdicionUI(input) {
     const tp = input.dataset.tipo;
     const key = `${f}_${t}`;
     
-    // Valor actual en el "carrito" de cambios (si ya lo había editado antes sin guardar)
+    // Valor en el carrito de cambios (si ya lo había editado antes sin guardar)
     const cv = (AppState.cambiosCart[key] && AppState.cambiosCart[key][tp] !== undefined) ? AppState.cambiosCart[key][tp] : ov;
-    
     if (nv === cv) return;
 
     const camara = AppState.camaras.find(c => c.id.toString() === document.getElementById('rev-camara').value.toString());
     let isDesv = false;
     let inc = "";
 
-    // Validación de Rangos HACCP
-    if (nv !== '') {
-        const num = parseFloat(nv);
-        if (tp === 'temp' && (num < camara.minTemp || num > camara.maxTemp)) isDesv = true;
-        if (tp === 'hum' && camara.minHr) {
-             const mH = camara.minHr <= 1 ? camara.minHr * 100 : camara.minHr;
-             const xH = camara.maxHr <= 1 ? camara.maxHr * 100 : camara.maxHr;
-             if (num < mH || num > xH) isDesv = true;
-        }
+    // ANÁLISIS TRANSVERSAL: Obtenemos AMBOS valores de la fila actual (Temperatura y Humedad)
+    const tr = input.closest('tr');
+    const iT = tr.querySelector(`input[data-fecha="${f}"][data-turno="${t}"][data-tipo="temp"]`);
+    const iH = tr.querySelector(`input[data-fecha="${f}"][data-turno="${t}"][data-tipo="hum"]`);
+    
+    // Si el tipo coincide con el input disparador, usamos el nuevo valor (nv), si no, usamos el valor que esté tipeado.
+    const tempActual = (tp === 'temp') ? nv : (iT ? iT.value.trim() : '');
+    const humActual = (tp === 'hum') ? nv : (iH ? iH.value.trim() : '');
+
+    // 1. Evaluación HACCP para Temperatura
+    if (tempActual !== '') {
+        const numT = parseFloat(tempActual);
+        if (numT < camara.minTemp || numT > camara.maxTemp) isDesv = true;
+    }
+    // 2. Evaluación HACCP para Humedad (si aplica)
+    if (humActual !== '' && camara.minHr) {
+         const mH = camara.minHr <= 1 ? camara.minHr * 100 : camara.minHr;
+         const xH = camara.maxHr <= 1 ? camara.maxHr * 100 : camara.maxHr;
+         const numH = parseFloat(humActual);
+         if (numH < mH || numH > xH) isDesv = true;
     }
 
-    // Si hay desviación, modificación histórica o borrado, exigir justificación
+    // Análisis de Modificación Histórica o Desviación para exigir justificación
     if (isDesv || (ov !== '' && nv !== ov)) {
         let mensajePrompt = "Modificación Histórica. Indique motivo:";
         if (isDesv) mensajePrompt = "Valores Fuera de Rango (HACCP). Ingrese medida correctiva obligatoria:";
@@ -602,44 +612,41 @@ async function validarEdicionUI(input) {
 
         inc = prompt(mensajePrompt);
         
-        // Si cancela el prompt o lo deja vacío, REVERTIMOS el valor al que tenía
+        // Si cancela, revertimos al último estado validado
         if (!inc || !inc.trim()) {
             input.value = cv;
             return; 
         }
     }
 
-    // Registrar en el "carrito" de cambios masivos
+    // Construcción o actualización del Carrito de Cambios
     if (!AppState.cambiosCart[key]) {
-        const tr = input.closest('tr');
-        const iT = tr.querySelector(`input[data-fecha="${f}"][data-turno="${t}"][data-tipo="temp"]`);
-        const iH = tr.querySelector(`input[data-fecha="${f}"][data-turno="${t}"][data-tipo="hum"]`);
         AppState.cambiosCart[key] = { 
             fecha: f, 
             turno: t, 
             temp: iT ? iT.getAttribute('data-old') : '', 
             hum: iH ? iH.getAttribute('data-old') : '', 
-            incidencia: '' 
+            incidencia: '',
+            estado: '' 
         };
     }
     
     AppState.cambiosCart[key][tp] = nv;
     if (inc) AppState.cambiosCart[key].incidencia = inc;
-
-    // Lógica de Restauración Visual: Si el usuario tipeó el mismo valor original, quitar colores de alerta
-    const iTemp = input.closest('tr').querySelector(`input[data-fecha="${f}"][data-turno="${t}"][data-tipo="temp"]`);
-    const iHum = input.closest('tr').querySelector(`input[data-fecha="${f}"][data-turno="${t}"][data-tipo="hum"]`);
     
-    const isTempOriginal = (iTemp ? iTemp.getAttribute('data-old') : '') === (iTemp ? iTemp.value.trim() : '');
-    const isHumOriginal = (iHum ? iHum.getAttribute('data-old') : '') === (iHum ? iHum.value.trim() : '');
+    // INYECCIÓN DE ESTADO CALCULADO: Forzamos la actualización al backend
+    // Si isDesv es true, el estado es DESVIACION. Si es falso (fue corregido), pasa a OK.
+    AppState.cambiosCart[key].estado = isDesv ? 'DESVIACION' : 'OK';
+
+    // Lógica de Restauración Visual UI
+    const isTempOriginal = (iT ? iT.getAttribute('data-old') : '') === tempActual;
+    const isHumOriginal = (iH ? iH.getAttribute('data-old') : '') === humActual;
 
     if (isTempOriginal && isHumOriginal) {
-        // Se arrepintió y volvió a los valores originales, limpiamos el carrito
         delete AppState.cambiosCart[key]; 
-        if(iTemp) iTemp.classList.remove('bg-yellow-100', 'text-yellow-900', 'dark:bg-yellow-900/40', 'dark:text-yellow-300'); 
-        if(iHum) iHum.classList.remove('bg-yellow-100', 'text-yellow-900', 'dark:bg-yellow-900/40', 'dark:text-yellow-300');
+        if(iT) iT.classList.remove('bg-yellow-100', 'text-yellow-900', 'dark:bg-yellow-900/40', 'dark:text-yellow-300'); 
+        if(iH) iH.classList.remove('bg-yellow-100', 'text-yellow-900', 'dark:bg-yellow-900/40', 'dark:text-yellow-300');
     } else { 
-        // Cambió de verdad, pintar de amarillo
         input.classList.add('bg-yellow-100', 'text-yellow-900', 'dark:bg-yellow-900/40', 'dark:text-yellow-300'); 
     }
     
@@ -956,46 +963,47 @@ const btnCancelarGestor = document.getElementById('btn-cancelar-gestor');
 const selectorGestor = document.getElementById('gestor-selector');
 const formGestor = document.getElementById('form-gestor-camara');
 
-// Función para extraer áreas únicas de la BD y llenar el selector
-function cargarAreasEnGestor() {
+// Función analítica para extraer Tipos y Áreas únicas de la BD y poblar los selectores
+function cargarTiposYAreasEnGestor() {
     const selectArea = document.getElementById('gestor-area');
-    if (!selectArea) return;
+    const selectTipo = document.getElementById('gestor-tipo');
     
-    // Extrae áreas únicas ignorando vacíos y ordenadas alfabéticamente
-    const areasUnicas = [...new Set(AppState.camaras.map(c => c.area).filter(a => a))].sort();
-    
-    selectArea.innerHTML = '<option value="">Seleccione un área...</option>' + 
-                           areasUnicas.map(a => `<option value="${a}">${a}</option>`).join('') +
-                           '<option value="OTRO">✏️ OTRA ÁREA NUEVA...</option>';
+    if (!Array.isArray(AppState.camaras)) return;
+
+    // 1. Extraer y poblar Áreas (Ignorando nulos y vacíos)
+    if (selectArea) {
+        const areasUnicas = [...new Set(
+            AppState.camaras.filter(c => c && typeof c === 'object' && c.area)
+                            .map(c => c.area.toString().trim())
+                            .filter(a => a !== '')
+        )].sort();
+        
+        selectArea.innerHTML = '<option value="">Seleccione un área...</option>' + 
+                               areasUnicas.map(a => `<option value="${a}">${a}</option>`).join('') +
+                               '<option value="OTRO">✏️ OTRA ÁREA NUEVA...</option>';
+    }
+
+    // 2. Extraer y poblar Tipos (Ignorando nulos y vacíos)
+    if (selectTipo) {
+        const tiposUnicos = [...new Set(
+            AppState.camaras.filter(c => c && typeof c === 'object' && c.tipo)
+                            .map(c => c.tipo.toString().trim())
+                            .filter(t => t !== '')
+        )].sort();
+        
+        selectTipo.innerHTML = '<option value="">Seleccione un tipo...</option>' + 
+                               tiposUnicos.map(t => `<option value="${t}">${t}</option>`).join('') +
+                               '<option value="OTRO">✏️ OTRO TIPO NUEVO...</option>';
+    }
 }
 
-// Escuchadores para mostrar/ocultar los inputs de "OTRO"
-['gestor-tipo', 'gestor-area'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) {
-        el.addEventListener('change', (e) => {
-            const inputOtro = document.getElementById(`${id}-otro`);
-            if (inputOtro) {
-                if (e.target.value === 'OTRO') {
-                    inputOtro.classList.remove('hidden');
-                    inputOtro.setAttribute('required', 'true');
-                    inputOtro.focus();
-                } else {
-                    inputOtro.classList.add('hidden');
-                    inputOtro.removeAttribute('required');
-                    inputOtro.value = '';
-                }
-            }
-        });
-    }
-});
-
-// ABRIR GESTOR (CON BLINDAJE CONTRA NULLS)
+// ABRIR GESTOR (Actualiza la llamada a la nueva función)
 if (btnAbrirGestor) {
     btnAbrirGestor.addEventListener('click', () => {
         if (selectorGestor) {
+            const camarasSeguras = Array.isArray(AppState.camaras) ? AppState.camaras : [];
             selectorGestor.innerHTML = '<option value="NEW">✨ CREAR NUEVA CÁMARA</option>' + 
-                AppState.camaras.map(c => `<option value="${c.id}">✏️ Editar: ${c.nombre}</option>`).join('');
+                camarasSeguras.map(c => `<option value="${c.id}">✏️ Editar: ${c.nombre || 'Sin nombre'}</option>`).join('');
         }
         
         if (formGestor) formGestor.reset();
@@ -1003,7 +1011,8 @@ if (btnAbrirGestor) {
         const inId = document.getElementById('gestor-id');
         if (inId) inId.value = '';
         
-        cargarAreasEnGestor(); 
+        // Llamada a la nueva función dinámica
+        cargarTiposYAreasEnGestor(); 
         
         const tipoOtro = document.getElementById('gestor-tipo-otro');
         const areaOtro = document.getElementById('gestor-area-otro');
@@ -1013,6 +1022,7 @@ if (btnAbrirGestor) {
         if (modalGestor) modalGestor.classList.remove('hidden');
     });
 }
+
 
 // CERRAR GESTOR
 [btnCerrarGestor, btnCancelarGestor].forEach(btn => {
