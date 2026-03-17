@@ -77,6 +77,17 @@ function actualizarUIUsuario() {
             tabDash.style.display = 'none'; 
         }
     }
+
+    // NUEVO: CONTROL DE ACCESO VISUAL AL GESTOR DE CÁMARAS
+    const btnGestor = document.getElementById('btn-abrir-gestor-camaras');
+    if (btnGestor) {
+        if (rolesDashboard.includes(AppState.user.rol.toUpperCase())) {
+            btnGestor.classList.remove('hidden'); 
+        } else {
+            btnGestor.classList.add('hidden'); 
+        }
+    }
+
 }
 
 function configurarFechaInicial() {
@@ -934,4 +945,99 @@ function renderizarDashboardGraficos(registros) {
             }
         });
     }
+}
+// ==========================================
+// 9. GESTOR DE CÁMARAS (CRUD - ADMINS ONLY)
+// ==========================================
+const modalGestor = document.getElementById('modal-gestor-camaras');
+const btnAbrirGestor = document.getElementById('btn-abrir-gestor-camaras');
+const btnCerrarGestor = document.getElementById('btn-cerrar-gestor');
+const btnCancelarGestor = document.getElementById('btn-cancelar-gestor');
+const selectorGestor = document.getElementById('gestor-selector');
+const formGestor = document.getElementById('form-gestor-camara');
+
+if (btnAbrirGestor) {
+    btnAbrirGestor.addEventListener('click', () => {
+        // Cargar el selector con las cámaras que están en memoria
+        selectorGestor.innerHTML = '<option value="NEW">✨ CREAR NUEVA CÁMARA</option>' + 
+            AppState.camaras.map(c => `<option value="${c.id}">✏️ Editar: ${c.nombre}</option>`).join('');
+        
+        formGestor.reset();
+        document.getElementById('gestor-id').value = '';
+        modalGestor.classList.remove('hidden');
+    });
+}
+
+[btnCerrarGestor, btnCancelarGestor].forEach(btn => {
+    if(btn) btn.addEventListener('click', () => modalGestor.classList.add('hidden'));
+});
+
+// Lógica al seleccionar crear o editar
+if (selectorGestor) {
+    selectorGestor.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val === 'NEW') {
+            formGestor.reset();
+            document.getElementById('gestor-id').value = '';
+        } else {
+            const c = AppState.camaras.find(cam => cam.id.toString() === val);
+            if(c) {
+                document.getElementById('gestor-id').value = c.id;
+                document.getElementById('gestor-nombre').value = c.nombre;
+                // Intentar seleccionar el tipo
+                const tipoSelect = document.getElementById('gestor-tipo');
+                for(let i=0; i<tipoSelect.options.length; i++){
+                    if(tipoSelect.options[i].value === c.tipo) tipoSelect.selectedIndex = i;
+                }
+                document.getElementById('gestor-area').value = c.area || AppState.user.area;
+                document.getElementById('gestor-min-temp').value = c.minTemp;
+                document.getElementById('gestor-max-temp').value = c.maxTemp;
+                document.getElementById('gestor-min-hr').value = c.minHr ? (c.minHr<=1 ? c.minHr*100 : c.minHr) : '';
+                document.getElementById('gestor-max-hr').value = c.maxHr ? (c.maxHr<=1 ? c.maxHr*100 : c.maxHr) : '';
+            }
+        }
+    });
+}
+
+// Guardar los cambios
+if (formGestor) {
+    formGestor.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('btn-guardar-gestor');
+        const origHTML = btn.innerHTML;
+        btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
+
+        const camaraData = {
+            id: document.getElementById('gestor-id').value,
+            nombre: document.getElementById('gestor-nombre').value.toUpperCase(),
+            tipo: document.getElementById('gestor-tipo').value,
+            area: document.getElementById('gestor-area').value.toUpperCase(),
+            minTemp: parseFloat(document.getElementById('gestor-min-temp').value),
+            maxTemp: parseFloat(document.getElementById('gestor-max-temp').value),
+            minHr: document.getElementById('gestor-min-hr').value ? parseFloat(document.getElementById('gestor-min-hr').value) : '',
+            maxHr: document.getElementById('gestor-max-hr').value ? parseFloat(document.getElementById('gestor-max-hr').value) : ''
+        };
+
+        // Reglas de negocio básicas
+        if(camaraData.minTemp > camaraData.maxTemp) {
+            alert("Error: La temperatura mínima no puede ser mayor a la máxima.");
+            btn.disabled = false; btn.innerHTML = origHTML; return;
+        }
+
+        try {
+            const res = await apiFetch({ action: 'guardarCamaraConfig', camaraData: camaraData });
+            if (res.status === 'success') {
+                alert("¡Guardado Exitoso! La interfaz se actualizará.");
+                modalGestor.classList.add('hidden');
+                // Recargamos silenciosamente el catálogo para reflejar cambios
+                cargarCamaras(); 
+            } else {
+                alert("Error de Servidor: " + res.message);
+            }
+        } catch (error) {
+            alert("Error de Red al intentar guardar.");
+        } finally {
+            btn.disabled = false; btn.innerHTML = origHTML;
+        }
+    });
 }
