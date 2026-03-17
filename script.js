@@ -946,6 +946,7 @@ function renderizarDashboardGraficos(registros) {
         });
     }
 }
+
 // ==========================================
 // 9. GESTOR DE CÁMARAS (CRUD - ADMINS ONLY)
 // ==========================================
@@ -956,14 +957,48 @@ const btnCancelarGestor = document.getElementById('btn-cancelar-gestor');
 const selectorGestor = document.getElementById('gestor-selector');
 const formGestor = document.getElementById('form-gestor-camara');
 
+// Función para extraer áreas únicas de la BD y llenar el selector
+function cargarAreasEnGestor() {
+    const selectArea = document.getElementById('gestor-area');
+    if (!selectArea) return;
+    
+    // Extrae áreas únicas ignorando vacíos y ordenadas alfabéticamente
+    const areasUnicas = [...new Set(AppState.camaras.map(c => c.area).filter(a => a))].sort();
+    
+    selectArea.innerHTML = '<option value="">Seleccione un área...</option>' + 
+                           areasUnicas.map(a => `<option value="${a}">${a}</option>`).join('') +
+                           '<option value="OTRO">✏️ OTRA ÁREA NUEVA...</option>';
+}
+
+// Escuchadores para mostrar/ocultar los inputs de "OTRO"
+['gestor-tipo', 'gestor-area'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) {
+        el.addEventListener('change', (e) => {
+            const inputOtro = document.getElementById(`${id}-otro`);
+            if (e.target.value === 'OTRO') {
+                inputOtro.classList.remove('hidden');
+                inputOtro.setAttribute('required', 'true');
+                inputOtro.focus();
+            } else {
+                inputOtro.classList.add('hidden');
+                inputOtro.removeAttribute('required');
+                inputOtro.value = '';
+            }
+        });
+    }
+});
+
 if (btnAbrirGestor) {
     btnAbrirGestor.addEventListener('click', () => {
-        // Cargar el selector con las cámaras que están en memoria
         selectorGestor.innerHTML = '<option value="NEW">✨ CREAR NUEVA CÁMARA</option>' + 
             AppState.camaras.map(c => `<option value="${c.id}">✏️ Editar: ${c.nombre}</option>`).join('');
         
         formGestor.reset();
         document.getElementById('gestor-id').value = '';
+        cargarAreasEnGestor(); 
+        document.getElementById('gestor-tipo-otro').classList.add('hidden');
+        document.getElementById('gestor-area-otro').classList.add('hidden');
         modalGestor.classList.remove('hidden');
     });
 }
@@ -976,20 +1011,46 @@ if (btnAbrirGestor) {
 if (selectorGestor) {
     selectorGestor.addEventListener('change', (e) => {
         const val = e.target.value;
+        const tipoOtro = document.getElementById('gestor-tipo-otro');
+        const areaOtro = document.getElementById('gestor-area-otro');
+
         if (val === 'NEW') {
             formGestor.reset();
             document.getElementById('gestor-id').value = '';
+            tipoOtro.classList.add('hidden'); tipoOtro.removeAttribute('required');
+            areaOtro.classList.add('hidden'); areaOtro.removeAttribute('required');
         } else {
             const c = AppState.camaras.find(cam => cam.id.toString() === val);
             if(c) {
                 document.getElementById('gestor-id').value = c.id;
                 document.getElementById('gestor-nombre').value = c.nombre;
-                // Intentar seleccionar el tipo
+                
+                // Mapeo dinámico del Tipo
                 const tipoSelect = document.getElementById('gestor-tipo');
-                for(let i=0; i<tipoSelect.options.length; i++){
-                    if(tipoSelect.options[i].value === c.tipo) tipoSelect.selectedIndex = i;
+                let foundTipo = Array.from(tipoSelect.options).some(opt => opt.value === c.tipo);
+                
+                if(!foundTipo && c.tipo) {
+                    tipoSelect.value = 'OTRO';
+                    tipoOtro.value = c.tipo;
+                    tipoOtro.classList.remove('hidden'); tipoOtro.setAttribute('required', 'true');
+                } else {
+                    tipoSelect.value = c.tipo;
+                    tipoOtro.classList.add('hidden'); tipoOtro.removeAttribute('required');
                 }
-                document.getElementById('gestor-area').value = c.area || AppState.user.area;
+
+                // Mapeo dinámico del Área
+                const areaSelect = document.getElementById('gestor-area');
+                let foundArea = Array.from(areaSelect.options).some(opt => opt.value === c.area);
+                
+                if(!foundArea && c.area) {
+                    areaSelect.value = 'OTRO';
+                    areaOtro.value = c.area;
+                    areaOtro.classList.remove('hidden'); areaOtro.setAttribute('required', 'true');
+                } else {
+                    areaSelect.value = c.area || '';
+                    areaOtro.classList.add('hidden'); areaOtro.removeAttribute('required');
+                }
+                
                 document.getElementById('gestor-min-temp').value = c.minTemp;
                 document.getElementById('gestor-max-temp').value = c.maxTemp;
                 document.getElementById('gestor-min-hr').value = c.minHr ? (c.minHr<=1 ? c.minHr*100 : c.minHr) : '';
@@ -1007,18 +1068,24 @@ if (formGestor) {
         const origHTML = btn.innerHTML;
         btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
 
+        // Determinar valores finales de Tipo y Área (Si es "OTRO", toma el valor del input oculto)
+        const tSel = document.getElementById('gestor-tipo').value;
+        const tipoFinal = (tSel === 'OTRO') ? document.getElementById('gestor-tipo-otro').value.toUpperCase().trim() : tSel;
+        
+        const aSel = document.getElementById('gestor-area').value;
+        const areaFinal = (aSel === 'OTRO') ? document.getElementById('gestor-area-otro').value.toUpperCase().trim() : aSel;
+
         const camaraData = {
             id: document.getElementById('gestor-id').value,
-            nombre: document.getElementById('gestor-nombre').value.toUpperCase(),
-            tipo: document.getElementById('gestor-tipo').value,
-            area: document.getElementById('gestor-area').value.toUpperCase(),
+            nombre: document.getElementById('gestor-nombre').value.toUpperCase().trim(),
+            tipo: tipoFinal,
+            area: areaFinal,
             minTemp: parseFloat(document.getElementById('gestor-min-temp').value),
             maxTemp: parseFloat(document.getElementById('gestor-max-temp').value),
             minHr: document.getElementById('gestor-min-hr').value ? parseFloat(document.getElementById('gestor-min-hr').value) : '',
             maxHr: document.getElementById('gestor-max-hr').value ? parseFloat(document.getElementById('gestor-max-hr').value) : ''
         };
 
-        // Reglas de negocio básicas
         if(camaraData.minTemp > camaraData.maxTemp) {
             alert("Error: La temperatura mínima no puede ser mayor a la máxima.");
             btn.disabled = false; btn.innerHTML = origHTML; return;
@@ -1029,7 +1096,6 @@ if (formGestor) {
             if (res.status === 'success') {
                 alert("¡Guardado Exitoso! La interfaz se actualizará.");
                 modalGestor.classList.add('hidden');
-                // Recargamos silenciosamente el catálogo para reflejar cambios
                 cargarCamaras(); 
             } else {
                 alert("Error de Servidor: " + res.message);
