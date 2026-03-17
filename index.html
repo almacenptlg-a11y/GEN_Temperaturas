@@ -1,270 +1,474 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="transition-colors duration-300"> 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Módulo de Control de Temperaturas (HACCP)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: { extend: {} }
-        }
-    </script>
-    <style>
-        /* PRO-TIP: Esto obliga a los calendarios y selects nativos del navegador a usar el tema oscuro */
-        .dark { color-scheme: dark; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"> 
+  <title>Control de Temperaturas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
+  
+  <style>
+    /* Scrollbar minimalista */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    
+    /* Ocultar flechas de los inputs number */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+  </style>
 
-        /* Estilos personalizados para la scrollbar */
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .dark ::-webkit-scrollbar-thumb { background: #475569; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        /* Ocultar flechas de los inputs number */
-        input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type=number] { -moz-appearance: textfield; }
-    </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <style>
+    /* ========================================================= */
+    /* MOTOR DE IMPRESIÓN (Auditoría Clean Format)               */
+    /* ========================================================= */
+    @media print {
+      @page { size: landscape; margin: 10mm; } 
+      body { 
+        background-color: white !important; 
+        -webkit-print-color-adjust: exact !important; 
+        print-color-adjust: exact !important; 
+      }
+      
+      /* 1. ELIMINAR INTERFAZ WEB COMPLETA */
+      #app-container, .no-imprimir, #modal-justificacion, #modal-gestor-camaras { 
+          display: none !important; 
+      }
+      
+      /* 2. MOSTRAR SOLO EL DOCUMENTO OFICIAL */
+      #formato-oficial-impresion { 
+          display: block !important; 
+          position: relative; 
+          width: 100%; 
+          margin: 0; 
+          padding: 0; 
+      }
+
+      /* 3. FORZAR ESTILOS ESTRICTOS DE TABLA (Blanco y Negro) */
+      table { border-collapse: collapse !important; width: 100% !important; page-break-inside: auto; }
+      tr { page-break-inside: avoid; page-break-after: auto; }
+      th, td { 
+          border: 1px solid #000 !important; 
+          padding: 4px !important; 
+          color: #000 !important; 
+      }
+      th { background-color: #f3f4f6 !important; } /* Gris muy claro para cabeceras */
+    }
+  </style>
+  
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen font-sans transition-colors duration-300">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 antialiased p-2 sm:p-4 min-h-screen flex flex-col">
 
-    <div class="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
-        <header class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-            <div>
-                <h1 class="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-3 tracking-tight">
-                    <div class="p-2 bg-blue-600 rounded-lg text-white"><i class="ph ph-thermometer text-2xl"></i></div>
-                    Control de Cámaras
-                </h1>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 font-medium">Registro y Monitoreo HACCP</p>
-            </div>
-            <div id="txt-usuario-activo" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
-                <i class="ph ph-spinner animate-spin text-blue-600"></i> Cargando usuario...
-            </div>
-        </header>
-
-        <nav class="flex space-x-2 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto pb-1">
-            <button id="tab-registro" class="px-5 py-3 font-bold text-sm border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 whitespace-nowrap transition-colors flex items-center gap-2">
-                <i class="ph ph-note-pencil text-lg"></i> Registro Diario
-            </button>
-            <button id="tab-revision" class="px-5 py-3 font-bold text-sm border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 whitespace-nowrap transition-colors flex items-center gap-2">
-                <i class="ph ph-table text-lg"></i> Matriz de Revisión
-            </button>
-            <button id="tab-dashboard" class="px-5 py-3 font-bold text-sm border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 whitespace-nowrap transition-colors flex items-center gap-2" style="display: none;">
-                <i class="ph ph-chart-pie-slice text-lg"></i> Dashboard (BI)
-            </button>
-        </nav>
-
-        <div id="vista-registro" class="block animate-fade-in">
-            <form id="form-lectura-camara" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                
-                <div class="lg:col-span-5 flex flex-col gap-6">
-                    <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-                        <h2 class="text-base font-black text-gray-800 dark:text-white mb-5 uppercase tracking-wide flex items-center"><i class="ph ph-sliders mr-2 text-blue-600"></i> Parámetros</h2>
-                        
-                        <div class="mb-5">
-                            <div class="flex justify-between items-end mb-2">
-                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300"><i class="ph ph-video-camera text-blue-600 dark:text-blue-400 text-lg align-middle mr-1"></i> Cámara a Registrar</label>
-                                <button type="button" id="btn-abrir-gestor-camaras" class="hidden text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors cursor-pointer bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded">
-                                    <i class="ph ph-gear"></i> Gestionar Cámaras
-                                </button>
-                            </div>
-                            <select id="camara-select" required disabled class="w-full rounded-xl border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white py-3 px-4 border shadow-sm focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-semibold cursor-not-allowed appearance-none">
-                                <option value="">Cargando cámaras...</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-5">
-                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2"><i class="ph ph-calendar-blank text-blue-600 dark:text-blue-400 text-lg align-middle mr-1"></i> Fecha de Registro</label>
-                            <input type="date" id="val-fecha" required class="w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white py-3 px-4 border shadow-sm focus:ring-4 focus:ring-blue-500/20 outline-none font-semibold">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-3"><i class="ph ph-clock text-blue-600 dark:text-blue-400 text-lg align-middle mr-1"></i> Turno Operativo</label>
-                            <input type="hidden" id="turno-seleccionado" required>
-                            <div id="turnos-container" class="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-3 gap-2">
-                                <div class="col-span-3 md:col-span-6 text-sm text-gray-500 dark:text-gray-400 py-3 text-center bg-gray-50 dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">Seleccione cámara y fecha...</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="lg:col-span-7 flex flex-col gap-6">
-                    <div id="banner-limites" class="hidden bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-center justify-between">
-                        <div class="flex items-center gap-3"><i class="ph ph-info text-2xl text-blue-600 dark:text-blue-400"></i><span class="text-sm font-bold text-blue-900 dark:text-blue-300 uppercase tracking-wide">Límites HACCP</span></div>
-                        <div class="text-right font-black text-blue-800 dark:text-blue-400 text-sm flex gap-4">
-                            <span id="txt-limites-temp"></span>
-                            <span id="txt-limites-hr"></span>
-                        </div>
-                    </div>
-
-                    <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex-grow flex flex-col">
-                        
-                        <div class="grid grid-cols-2 gap-6 mb-6">
-                            <div class="col-span-2 sm:col-span-1">
-                                <label class="block text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 text-center">Temperatura (°C)</label>
-                                <input type="number" id="val-temp" step="0.1" required 
-                                       class="w-full text-center text-3xl font-black text-gray-800 dark:text-white bg-gray-50 dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-xl py-4 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none placeholder-gray-400 dark:placeholder-gray-500" 
-                                       placeholder="0.0">
-                            </div>
-
-                            <div class="col-span-2 sm:col-span-1 hidden" id="box-humedad">
-                                <label class="block text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 text-center">Humedad (%HR)</label>
-                                <input type="number" id="val-humedad" step="0.1" 
-                                       class="w-full text-center text-3xl font-black text-gray-800 dark:text-white bg-gray-50 dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-xl py-4 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none placeholder-gray-400 dark:placeholder-gray-500" 
-                                       placeholder="0.0">
-                            </div>
-                        </div>
-
-                        <div id="panel-estado" class="hidden mb-6 transition-all duration-300">
-                            <div class="flex items-center gap-4">
-                                <div id="icono-estado"></div>
-                                <div><div id="titulo-estado"></div><div id="desc-estado"></div></div>
-                            </div>
-                        </div>
-
-                        <div class="mb-6 flex-grow">
-                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2"><i class="ph ph-warning-circle text-amber-500 text-lg align-middle mr-1"></i> Incidencia / Medida Correctiva</label>
-                            <textarea id="val-incidencia" rows="2" 
-                                      class="w-full rounded-xl border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white py-3 px-4 border focus:ring-2 focus:ring-red-500 outline-none transition-colors placeholder-gray-400 dark:placeholder-gray-500 resize-none" 
-                                      placeholder="Si hay desviación, describa la acción tomada..."></textarea>
-                        </div>
-
-                        <button type="submit" id="btn-guardar-lectura" disabled class="w-full bg-gray-400 dark:bg-gray-600 text-white font-black py-4 px-6 rounded-xl shadow-lg transition-all flex justify-center items-center gap-2 cursor-not-allowed">
-                            <i class="ph ph-floppy-disk text-2xl"></i> Esperando datos...
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </div>
-
-        <div id="vista-revision" class="hidden flex-col gap-6 animate-fade-in">
-            <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 items-end">
-                <div class="flex-grow min-w-[200px]">
-                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Cámara</label>
-                    <select id="rev-camara" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white py-2 px-3 border outline-none">
-                        <option value="">Seleccione...</option>
-                    </select>
-                </div>
-                <div class="w-32">
-                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Mes</label>
-                    <select id="rev-mes" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white py-2 px-3 border outline-none">
-                        <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
-                        <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
-                        <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Setiembre</option>
-                        <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-                    </select>
-                </div>
-                <div class="w-24">
-                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Año</label>
-                    <input type="number" id="rev-anio" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white py-2 px-3 border text-center outline-none">
-                </div>
-                <button type="button" id="btn-generar-reporte" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-sm transition-colors flex items-center gap-2 h-[42px]">
-                    <i class="ph ph-magnifying-glass text-lg"></i> Consultar
-                </button>
-            </div>
-
-            <div id="rev-herramientas" class="hidden justify-between items-center bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl border border-gray-200 dark:border-gray-700">
-                <div class="flex gap-4 text-sm font-bold text-gray-600 dark:text-gray-300">
-                    <span id="rev-txt-temp"></span>
-                    <span id="rev-txt-hr"></span>
-                </div>
-                <div class="flex gap-2">
-                    <button id="btn-toggle-edicion" class="bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 px-3 py-1.5 rounded text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-1 shadow-sm">
-                        <i class="ph ph-pencil-simple"></i> <span id="txt-btn-edicion">Activar Edición</span>
-                    </button>
-                    <button id="btn-ejecutar-masivo" onclick="guardarCambiosMasivos()" class="hidden bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-sm font-bold transition-colors items-center gap-1 shadow-sm">
-                        <i class="ph ph-check-circle"></i> <span id="txt-btn-guardar-masivo">Guardar (0)</span>
-                    </button>
-                    <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
-                    <button id="btn-imprimir" onclick="prepararImpresion()" class="hidden bg-gray-800 dark:bg-gray-600 hover:bg-black dark:hover:bg-gray-500 text-white px-3 py-1.5 rounded text-sm font-bold transition-colors items-center gap-1 shadow-sm">
-                        <i class="ph ph-printer"></i> Imprimir
-                    </button>
-                    <button id="btn-descargar-pdf" onclick="generarPDF()" class="hidden bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm font-bold transition-colors items-center gap-1 shadow-sm">
-                        <i class="ph ph-file-pdf"></i> PDF
-                    </button>
-                </div>
-            </div>
-
-            <div id="tabla-mensaje" class="text-center py-12 text-gray-500 dark:text-gray-400 font-medium">Seleccione los filtros y presione "Consultar" para ver la matriz.</div>
-            <div id="tabla-container" class="hidden bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden relative">
-                <div class="overflow-x-auto max-h-[600px]">
-                    <table class="w-full text-sm text-left border-collapse">
-                        <thead id="tabla-head"></thead>
-                        <tbody id="tabla-body" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div id="vista-dashboard" class="hidden flex-col gap-6 animate-fade-in">
-            <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 items-end">
-                <div class="w-40">
-                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Mes Analizado</label>
-                    <select id="dash-mes" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white py-2 px-3 border outline-none">
-                        <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
-                        <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
-                        <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Setiembre</option>
-                        <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-                    </select>
-                </div>
-                <div class="w-24">
-                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Año</label>
-                    <input type="number" id="dash-anio" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white py-2 px-3 border text-center outline-none">
-                </div>
-                <button type="button" id="btn-generar-dashboard" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg shadow-sm transition-colors flex items-center gap-2 h-[42px]">
-                    <i class="ph ph-chart-line-up text-lg"></i> Analizar
-                </button>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-4">
-                    <div class="p-4 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-xl"><i class="ph ph-check-circle text-3xl"></i></div>
-                    <div>
-                        <p class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase">Cumplimiento General</p>
-                        <p id="kpi-cumplimiento" class="text-2xl font-black text-gray-900 dark:text-white">-</p>
-                    </div>
-                </div>
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-4">
-                    <div class="p-4 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-xl"><i class="ph ph-warning-circle text-3xl"></i></div>
-                    <div>
-                        <p class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase">Total Desviaciones</p>
-                        <p id="kpi-incidencias" class="text-2xl font-black text-gray-900 dark:text-white">-</p>
-                    </div>
-                </div>
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex items-center gap-4">
-                    <div class="p-4 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-xl"><i class="ph ph-thermometer-hot text-3xl"></i></div>
-                    <div>
-                        <p class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase">Cámara Más Crítica</p>
-                        <p id="kpi-critica" class="text-lg font-black text-gray-900 dark:text-white truncate max-w-[150px]">-</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-                    <h3 class="font-bold text-gray-700 dark:text-gray-300 mb-4 text-center uppercase tracking-wide text-sm">Desviaciones por Cámara</h3>
-                    <div class="h-64"><canvas id="chartIncidencias"></canvas></div>
-                </div>
-                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-                    <h3 class="font-bold text-gray-700 dark:text-gray-300 mb-4 text-center uppercase tracking-wide text-sm">Distribución por Turno</h3>
-                    <div class="h-64 flex justify-center"><canvas id="chartTurnos"></canvas></div>
-                </div>
-            </div>
-        </div>
+  <div id="app-container" class="max-w-5xl w-full mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors duration-300 flex-grow flex flex-col">
+    
+    <div class="bg-blue-600 dark:bg-blue-800 text-white px-5 py-4 sm:px-6 sm:py-5 flex items-center gap-3 shadow-md z-10 relative">
+      <i class="ph ph-thermometer text-3xl sm:text-4xl"></i>
+      <div class="flex-grow">
+        <h2 class="text-lg sm:text-xl font-bold leading-tight uppercase tracking-wide">Control Operativo de Cámaras</h2>
+        <p class="text-xs sm:text-sm text-blue-100 font-medium mt-0.5" id="txt-usuario-activo">
+          <i class="ph ph-spinner animate-spin inline-block"></i> Cargando sesión...
+        </p>
+      </div>
+      
+      <button type="button" id="btn-abrir-gestor-camaras" class="hidden flex-shrink-0 text-xs sm:text-sm font-bold text-blue-800 dark:text-blue-900 bg-blue-100 hover:bg-white transition-colors cursor-pointer px-3 py-2 rounded-lg shadow-sm border border-blue-300 flex items-center gap-2">
+        <i class="ph ph-gear text-lg"></i> <span class="hidden sm:inline">Gestionar Cámaras</span>
+      </button>
     </div>
 
-    <div id="formato-oficial-impresion" class="hidden bg-white text-black p-8 mx-auto" style="width: 297mm; min-height: 210mm;">
-        <table class="w-full border-collapse border border-black text-xs mb-4">
-            <tr>
-                <td rowspan="3" class="border border-black p-2 text-center w-40">
-                    <img src="https://irp.cdn-website.com/1d1a15fa/dms3rep/multi/LOGO+LGA.png" alt="Logo" class="max-w-[120px] mx-auto">
-                </td>
-                <td rowspan="2" class="border border-black p-2 text-center font-bold text-sm" id="print-titulo-main">
-                    MANUAL DE BUENAS PRÁCTICAS DE MANUFACTURA
-                </td>
-                <td class="border border-black p-1 w-24 font-bold
+    <div class="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 overflow-x-auto">
+      <button id="tab-registro" class="flex-1 py-3 px-4 font-bold text-sm sm:text-base border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 transition-colors whitespace-nowrap">
+        <i class="ph ph-pencil-simple inline-block align-middle mr-1 text-lg"></i> Registro Diario
+      </button>
+      <button id="tab-revision" class="flex-1 py-3 px-4 font-bold text-sm sm:text-base border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors whitespace-nowrap">
+        <i class="ph ph-table inline-block align-middle mr-1 text-lg"></i> Reporte Mensual
+      </button>
+      <button id="tab-dashboard" class="flex-1 py-3 px-4 font-bold text-sm sm:text-base border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors whitespace-nowrap" style="display: none;">
+        <i class="ph ph-chart-polar inline-block align-middle mr-1 text-lg"></i> Dashboard KPI
+      </button>
+    </div>
+
+    <div id="vista-registro" class="p-4 sm:p-6 md:p-8 block flex-grow">
+      <form id="form-lectura-camara" class="space-y-5 sm:space-y-6 max-w-3xl mx-auto">
+
+        <div id="banner-limites" class="hidden bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-sm p-3 sm:p-4 rounded-xl border border-blue-200 dark:border-blue-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-inner">
+           <span id="txt-limites-temp" class="flex items-center gap-2 font-bold"></span>
+           <span id="txt-limites-hr" class="flex items-center gap-2 font-bold"></span>
+        </div>
+        
+        <div id="panel-estado" class="hidden rounded-xl p-3 sm:p-4 border flex items-start gap-3 sm:gap-4 transition-colors duration-300 shadow-sm">
+           <div id="icono-estado" class="mt-0.5 sm:mt-1"></div>
+           <div class="flex-1">
+              <h4 id="titulo-estado" class="font-bold text-base sm:text-lg mb-0.5 sm:mb-1"></h4>
+              <p id="desc-estado" class="text-xs sm:text-sm font-medium leading-tight"></p>
+           </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+          <div class="md:col-span-2">
+            <label class="block text-xs sm:text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Cámara a controlar</label>
+            <select id="camara-select" required disabled class="w-full rounded-xl border-gray-300 dark:border-gray-600 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-50 dark:bg-gray-700 dark:text-white py-3 px-4 border transition-colors cursor-not-allowed">
+              <option value="">Cargando catálogo...</option>
+            </select>
+          </div>
+          <div class="md:col-span-1">
+            <label class="block text-xs sm:text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Fecha</label>
+            <input type="date" id="val-fecha" required class="w-full rounded-xl border-gray-300 dark:border-gray-600 shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 dark:text-white py-3 px-4 border">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs sm:text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Turno de Lectura</label>
+          <div id="turnos-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
+             <div class="col-span-2 sm:col-span-3 md:col-span-6 text-sm text-gray-500 dark:text-gray-400 py-4 text-center bg-gray-50 dark:bg-gray-800 rounded-xl border border-dashed dark:border-gray-600">
+                Seleccione una cámara primero...
+             </div>
+          </div>
+          <input type="hidden" id="turno-seleccionado" required>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+          <div>
+            <label class="block text-xs sm:text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 text-center">Temperatura (°C)</label>
+            <input type="number" step="0.1" id="val-temp" required placeholder="0.0" 
+                   class="w-full text-center text-3xl font-black text-gray-800 dark:text-white bg-gray-50 dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-xl py-4 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none placeholder-gray-400 dark:placeholder-gray-500 shadow-inner">
+          </div>
+          <div id="box-humedad" class="hidden">
+            <label class="block text-xs sm:text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 text-center">Humedad Relativa (%)</label>
+            <input type="number" step="0.1" id="val-humedad" placeholder="0.0" 
+                   class="w-full text-center text-3xl font-black text-gray-800 dark:text-white bg-gray-50 dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-xl py-4 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none placeholder-gray-400 dark:placeholder-gray-500 shadow-inner">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs sm:text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Observaciones / Correcciones</label>
+          <textarea id="val-incidencia" rows="2" placeholder="Opcional. Obligatorio si hay desviación..." 
+                    class="w-full rounded-xl border-gray-300 dark:border-gray-600 shadow-sm focus:ring-red-500 focus:border-red-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 py-3 px-4 border transition-colors resize-none"></textarea>
+        </div>
+
+        <div class="pt-2">
+          <button type="submit" id="btn-guardar-lectura" disabled class="w-full bg-gray-400 dark:bg-gray-600 text-white font-bold py-4 sm:py-5 px-4 rounded-xl transition-all flex justify-center items-center gap-2 shadow-md cursor-not-allowed text-lg hover:shadow-lg">
+            <i class="ph ph-lock-key text-2xl"></i> Esperando autorización...
+          </button>
+        </div>
+
+      </form>
+    </div>
+
+    <div id="vista-revision" class="p-3 sm:p-6 md:p-8 hidden flex-col h-full flex-grow">
+      
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 p-3 sm:p-4 bg-gray-50 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700">
+        <div class="col-span-2 sm:col-span-1">
+          <label class="block text-[10px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Cámara</label>
+          <select id="rev-camara" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Cargando...</option>
+          </select>
+        </div>
+        <div class="col-span-1">
+          <label class="block text-[10px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Mes</label>
+          <select id="rev-mes" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+            <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+            <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+        </div>
+        <div class="col-span-1">
+          <label class="block text-[10px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Año</label>
+          <input type="number" id="rev-anio" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="col-span-2 sm:col-span-1 flex items-end">
+          <button type="button" id="btn-generar-reporte" class="w-full bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 text-white font-bold py-2 rounded-lg transition-colors flex justify-center items-center gap-2 text-sm h-[38px] shadow-sm">
+            <i class="ph ph-magnifying-glass text-lg"></i> Consultar
+          </button>
+        </div>
+      </div>
+
+      <div id="rev-herramientas" class="hidden flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 transition-all">
+        <div id="rev-banner-limites" class="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-xs sm:text-sm p-2 sm:p-3 rounded-xl border border-blue-200 dark:border-blue-800 flex flex-wrap gap-2 shadow-inner w-full sm:w-auto">
+           <span id="rev-txt-temp" class="flex items-center gap-1 font-bold"></span>
+           <span id="rev-txt-hr" class="flex items-center gap-1 font-bold"></span>
+        </div>
+        
+        <div class="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
+            <button id="btn-descargar-pdf" onclick="generarPDF()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 sm:px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-xs sm:text-sm">
+                <i class="ph ph-file-pdf text-lg"></i> <span class="hidden sm:inline">Descargar PDF</span>
+            </button>
+
+            <button id="btn-imprimir" onclick="prepararImpresion()" class="bg-gray-800 hover:bg-black text-white font-bold py-2 px-3 sm:px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-xs sm:text-sm">
+                <i class="ph ph-printer text-lg"></i> <span class="hidden sm:inline">Imprimir Físico</span>
+            </button>
+
+            <button id="btn-ejecutar-masivo" onclick="guardarCambiosMasivos()" class="hidden flex-1 sm:flex-none bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-3 sm:px-4 rounded-xl transition-all items-center justify-center gap-2 shadow-sm text-xs sm:text-sm">
+                <i class="ph ph-cloud-arrow-up text-lg"></i> <span id="txt-btn-guardar-masivo">Guardar (0)</span>
+            </button>
+
+            <button id="btn-toggle-edicion" class="flex-1 sm:flex-none bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-800 dark:text-white border border-gray-300 dark:border-gray-600 font-bold py-2 px-3 sm:px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-xs sm:text-sm">
+                <i class="ph ph-pencil-simple text-lg"></i> <span id="txt-btn-edicion">Activar Edición</span>
+            </button>
+        </div>
+      </div>
+
+      <div id="tabla-container" class="overflow-x-auto overflow-y-auto max-h-[55vh] rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hidden relative">
+        <table class="w-full text-xs sm:text-sm text-left whitespace-nowrap border-collapse">
+          <thead class="text-[10px] sm:text-xs text-gray-700 uppercase bg-gray-100 dark:bg-gray-700 dark:text-gray-300 relative z-20" id="tabla-head">
+          </thead>
+          <tbody id="tabla-body" class="bg-white dark:bg-gray-800">
+          </tbody>
+        </table>
+      </div>
+
+      <div id="tabla-mensaje" class="text-center py-10 text-gray-500 dark:text-gray-400 hidden flex-grow flex flex-col items-center justify-center">
+      </div>
+
+    </div>
+
+    <div id="vista-dashboard" class="p-3 sm:p-6 md:p-8 hidden flex-col h-full flex-grow bg-gray-50/50 dark:bg-gray-900/20">
+      
+      <div class="flex flex-col sm:flex-row gap-3 mb-6 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm items-end">
+        <div class="flex-1 w-full">
+          <label class="block text-[10px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Mes de Análisis</label>
+          <select id="dash-mes" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 outline-none">
+            <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+            <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+            <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+        </div>
+        <div class="flex-1 w-full">
+          <label class="block text-[10px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Año</label>
+          <input type="number" id="dash-anio" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 outline-none">
+        </div>
+        <div class="w-full sm:w-auto">
+          <button id="btn-generar-dashboard" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors flex justify-center items-center gap-2 text-sm h-[38px] shadow-sm">
+            <i class="ph ph-chart-line-up text-lg"></i> Analizar
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-4">
+          <div class="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg"><i class="ph ph-clipboard-text text-3xl"></i></div>
+          <div><p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Cumplimiento General</p><h3 id="kpi-cumplimiento" class="text-2xl font-black text-gray-800 dark:text-gray-100">- %</h3></div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-4">
+          <div class="p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg"><i class="ph ph-warning-octagon text-3xl"></i></div>
+          <div><p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Desviaciones HACCP</p><h3 id="kpi-incidencias" class="text-2xl font-black text-gray-800 dark:text-gray-100">-</h3></div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-4">
+          <div class="p-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg"><i class="ph ph-thermometer-hot text-3xl"></i></div>
+          <div><p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Cámara más Crítica</p><h3 id="kpi-critica" class="text-lg font-bold text-gray-800 dark:text-gray-100 leading-tight truncate max-w-[150px]">-</h3></div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow min-h-[300px]">
+        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col">
+          <h4 class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4 border-b border-gray-100 dark:border-gray-700 pb-2"><i class="ph ph-chart-bar mr-1 text-blue-500"></i> Desviaciones por Cámara</h4>
+          <div class="relative flex-grow w-full h-full min-h-[250px]"><canvas id="chartIncidencias"></canvas></div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col">
+          <h4 class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4 border-b border-gray-100 dark:border-gray-700 pb-2"><i class="ph ph-clock mr-1 text-blue-500"></i> Alertas por Turno</h4>
+          <div class="relative flex-grow w-full h-full min-h-[250px]"><canvas id="chartTurnos"></canvas></div>
+        </div>
+      </div>
+
+    </div>
+    
+  </div>
+
+  <div id="modal-justificacion" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-gray-900/60 backdrop-blur-sm transition-opacity">
+    <div class="bg-white dark:bg-gray-800 w-[90%] max-w-md rounded-2xl shadow-2xl overflow-hidden transform scale-95 transition-transform duration-300">
+        <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3 bg-gray-50 dark:bg-gray-800/50">
+            <i id="modal-just-icono" class="ph ph-warning-octagon text-3xl text-amber-500"></i>
+            <h3 id="modal-just-titulo" class="font-bold text-lg text-gray-800 dark:text-white">Advertencia</h3>
+        </div>
+        <div class="p-5">
+            <p id="modal-just-mensaje" class="text-sm text-gray-600 dark:text-gray-300 mb-3 font-medium">Ingrese la justificación:</p>
+            <textarea id="modal-just-input" rows="3" class="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-white px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow resize-none text-sm outline-none" placeholder="Escriba el motivo aquí..."></textarea>
+            <p id="modal-just-error" class="text-xs text-red-500 font-bold mt-2 hidden"><i class="ph ph-warning-circle"></i> Este campo es obligatorio para continuar.</p>
+        </div>
+        <div class="p-4 bg-gray-50 dark:bg-gray-700/50 flex justify-end gap-3 border-t border-gray-100 dark:border-gray-700">
+            <button id="btn-just-cancelar" class="px-4 py-2 rounded-xl text-sm font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Cancelar</button>
+            <button id="btn-just-confirmar" class="px-4 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-sm">Confirmar</button>
+        </div>
+    </div>
+  </div>
+
+  <div id="formato-oficial-impresion" class="hidden bg-white text-black font-sans text-[10px] max-w-[1000px] mx-auto p-4">
+      
+      <table class="w-full text-center border-collapse border border-black mb-4">
+          <tr>
+              <td rowspan="4" class="w-[15%] p-1 align-middle border border-black">
+                  <img src="https://lagenovesa.pe/wp-content/uploads//2021/12/logo_footer.png" alt="Logo" class="max-w-[120px] mx-auto">
+              </td>
+              <td colspan="3" id="print-titulo-main" class="font-bold text-[14px] p-2 border border-black uppercase tracking-wide"></td>
+          </tr>
+          <tr>
+              <td colspan="3" id="print-titulo-sub" class="font-bold text-[14px] p-2 border border-black uppercase tracking-wide"></td>
+          </tr>
+          <tr>
+              <td class="w-[28%] text-[12px] border border-black p-1">Versión: <span id="print-version" class="font-bold"></span></td>
+              <td class="w-[28%] text-[12px] border border-black p-1">Revisión: <span id="print-fecha-rev" class="font-bold"></span></td>
+              <td class="w-[28%] text-[12px] border border-black p-1 font-bold">Código: <span id="print-codigo"></span></td>
+          </tr>
+          <tr>
+              <td class="text-[12px] border border-black p-1">Elaborado por: Área de Calidad</td>
+              <td class="text-[12px] border border-black p-1">Revisado por: Sub Gerente</td>
+              <td class="text-[12px] border border-black p-1">Aprobado por: Gerencia General</td>
+          </tr>
+      </table>
+      
+      <div class="flex justify-center gap-12 font-bold text-[16px] text-black mb-3 uppercase tracking-wider">
+          <span>CÁMARA: <span id="print-camara-nombre" class="font-normal border-b border-black px-2 pb-0.5 min-w-[150px] inline-block text-center"></span></span>
+          <span>MES/AÑO: <span id="print-mes-nombre" class="font-normal border-b border-black px-2 pb-0.5 min-w-[150px] inline-block text-center"></span></span>
+      </div>
+
+      <table class="w-full mb-6 border-collapse border border-black text-center text-[10px]">
+          <thead class="bg-gray-100 font-bold border border-black" id="print-head-datos"></thead>
+          <tbody id="print-body-datos" class="border border-black"></tbody>
+      </table>
+
+      <h4 class="font-bold mb-1 uppercase text-black text-[12px]">Incidencias y medidas correctivas:</h4>
+      <table class="w-full mb-6 border-collapse border border-black text-left text-[10px]">
+          <thead class="bg-gray-100 font-bold border border-black text-center">
+              <tr>
+                  <th class="border border-black p-1 w-32">Fecha y Turno</th>
+                  <th class="border border-black p-1">Incidencia reportada / Acción correctiva</th>
+                  <th class="border border-black p-1 w-32">V°B° Supervisor</th>
+              </tr>
+          </thead>
+          <tbody id="print-body-incidencias"></tbody>
+      </table>
+
+      <div class="mt-4 text-[9px] text-black page-break-inside-avoid">
+          <h4 class="font-bold text-left text-[12px] mb-1">Rangos e indicaciones de referencia:</h4>
+          <table class="w-full border-collapse border border-black text-center">
+              <thead class="bg-gray-100 font-bold border border-black">
+                  <tr>
+                      <th class="border border-black p-1 w-[15%]">Tipo camara / ambiente</th>
+                      <th class="border border-black p-1 w-[10%]">°C mínimo</th>
+                      <th class="border border-black p-1 w-[10%]">°C máximo</th>
+                      <th class="border border-black p-1 w-[15%]">Humedad relativa</th>
+                      <th class="border border-black p-1">Indicaciones de contingencia</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  <tr>
+                      <td class="border border-black p-1 font-bold">CAMARA CONGELAMIENTO</td><td class="border border-black p-1">-23 °C</td><td class="border border-black p-1">-12 °C</td><td class="border border-black p-1 bg-gray-50">-</td>
+                      <td rowspan="4" class="border border-black p-2 text-justify align-middle">
+                          Ante una desviación de la temperatura: evitar aperturas e informar al jefe de mantenimiento, el producto se colocará en cuarentena en otra cámara. Se someterá el material afectado a evaluación microbiológica, de superar los limites se separará para residuo orgánico. Si los resultados son los deseados se establecerá el control de temperatura.
+                      </td>
+                  </tr>
+                  <tr><td class="border border-black p-1 font-bold">CAMARA REFRIGERACION</td><td class="border border-black p-1">0 °C</td><td class="border border-black p-1">5 °C</td><td class="border border-black p-1 bg-gray-50">-</td></tr>
+                  <tr><td class="border border-black p-1 font-bold">AMBIENTE REFRIGERADO</td><td class="border border-black p-1">5 °C</td><td class="border border-black p-1">10 °C</td><td class="border border-black p-1">80% / 95%</td></tr>
+                  <tr><td class="border border-black p-1 font-bold">CAMARA DE MADURACIÓN</td><td class="border border-black p-1">10 °C</td><td class="border border-black p-1">15 °C</td><td class="border border-black p-1">70% / 80%</td></tr>
+              </tbody>
+          </table>
+      </div>
+
+      <div class="flex justify-between mt-16 px-12 page-break-inside-avoid">
+          <div class="text-center w-64 border-t border-black pt-1">
+              <span class="font-bold block text-[11px]">Reportado por:</span>
+              <span id="print-responsable" class="italic text-[12px] uppercase"></span>
+          </div>
+          <div class="text-center w-64 border-t border-black pt-1 font-bold text-[11px]">V°B° Jefatura de Calidad</div>
+      </div>
+      
+      <div class="text-center mt-8 text-[10px] text-gray-700 border-t border-dashed border-gray-400 pt-2">
+          <em>La Genovesa Agroindustrias S.A. RUC: 20119873542 <br> Parque industrial Mz. I Lt. 10 Tacna - Tacna - Perú</em>
+      </div>
+  </div>
+  
+  <div id="modal-gestor-camaras" class="fixed inset-0 z-50 hidden bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/80">
+        <h3 class="font-black text-gray-800 dark:text-white text-lg"><i class="ph ph-nut text-blue-600 dark:text-blue-400 mr-2"></i>Gestor de Cámaras</h3>
+        <button type="button" id="btn-cerrar-gestor" class="text-gray-400 hover:text-red-500 transition-colors"><i class="ph ph-x text-2xl"></i></button>
+      </div>
+
+      <div class="p-6 overflow-y-auto flex-grow">
+        
+        <div class="mb-6 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
+          <label class="block text-xs font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider mb-2">Acción a realizar</label>
+          <select id="gestor-selector" class="w-full rounded-lg border-blue-200 dark:border-blue-700 bg-white dark:bg-gray-800 dark:text-white py-2 px-3 shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+            <option value="NEW">✨ CREAR NUEVA CÁMARA</option>
+          </select>
+        </div>
+
+        <form id="form-gestor-camara" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2 hidden">
+            <input type="text" id="gestor-id" readonly>
+          </div>
+
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Nombre de la Cámara</label>
+            <input type="text" id="gestor-nombre" required placeholder="Ej: TUNEL DE CONGELACIÓN 2" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 outline-none uppercase">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Tipo</label>
+            <div class="flex flex-col gap-2">
+                <select id="gestor-tipo" required class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm focus:ring-blue-500 outline-none transition-all">
+                  <option value="REFRIGERACION">REFRIGERACIÓN</option>
+                  <option value="CONGELACION">CONGELACIÓN</option>
+                  <option value="AMBIENTE">AMBIENTE / SECO</option>
+                  <option value="MADURACION">MADURACIÓN</option>
+                  <option value="OTRO">✏️ OTRO (ESPECIFICAR)...</option>
+                </select>
+                <input type="text" id="gestor-tipo-otro" placeholder="Escriba el nuevo tipo" class="hidden w-full rounded-lg border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-white py-2 px-3 border shadow-inner text-sm focus:ring-blue-500 outline-none uppercase transition-all">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Área Asignada (Gestión)</label>
+            <div class="flex flex-col gap-2">
+                <select id="gestor-area" required class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm focus:ring-blue-500 outline-none transition-all">
+                  <option value="">Seleccione un área...</option>
+                </select>
+                <input type="text" id="gestor-area-otro" placeholder="Escriba la nueva área" class="hidden w-full rounded-lg border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-white py-2 px-3 border shadow-inner text-sm focus:ring-blue-500 outline-none uppercase transition-all">
+            </div>
+          </div>
+
+          <div class="p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-900/30">
+            <label class="block text-xs font-bold text-red-600 dark:text-red-400 uppercase mb-2"><i class="ph ph-thermometer-simple"></i> Temp Mínima (°C)</label>
+            <input type="number" id="gestor-min-temp" step="0.1" required class="w-full rounded border-red-200 dark:border-red-800 bg-white dark:bg-gray-800 dark:text-white py-1.5 px-3 border shadow-sm text-sm focus:ring-red-500 outline-none font-bold text-center">
+          </div>
+          <div class="p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-900/30">
+            <label class="block text-xs font-bold text-red-600 dark:text-red-400 uppercase mb-2"><i class="ph ph-thermometer-hot"></i> Temp Máxima (°C)</label>
+            <input type="number" id="gestor-max-temp" step="0.1" required class="w-full rounded border-red-200 dark:border-red-800 bg-white dark:bg-gray-800 dark:text-white py-1.5 px-3 border shadow-sm text-sm focus:ring-red-500 outline-none font-bold text-center">
+          </div>
+
+          <div class="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/30">
+            <label class="block text-xs font-bold text-blue-600 dark:text-blue-400 uppercase mb-2"><i class="ph ph-drop"></i> HR Mínima (%) *Opcional</label>
+            <input type="number" id="gestor-min-hr" step="0.1" class="w-full rounded border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 dark:text-white py-1.5 px-3 border shadow-sm text-sm focus:ring-blue-500 outline-none font-bold text-center placeholder-gray-400" placeholder="Dejar vacío si no aplica">
+          </div>
+          <div class="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/30">
+            <label class="block text-xs font-bold text-blue-600 dark:text-blue-400 uppercase mb-2"><i class="ph ph-drop"></i> HR Máxima (%) *Opcional</label>
+            <input type="number" id="gestor-max-hr" step="0.1" class="w-full rounded border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 dark:text-white py-1.5 px-3 border shadow-sm text-sm focus:ring-blue-500 outline-none font-bold text-center placeholder-gray-400" placeholder="Dejar vacío si no aplica">
+          </div>
+
+        </form>
+      </div>
+
+      <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex justify-end gap-3">
+        <button type="button" id="btn-cancelar-gestor" class="px-4 py-2 font-bold text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm">Cancelar</button>
+        <button type="submit" form="form-gestor-camara" id="btn-guardar-gestor" class="px-6 py-2 font-bold text-white bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 transition-colors text-sm flex items-center gap-2">
+          <i class="ph ph-floppy-disk text-lg"></i> Guardar Cámara
+        </button>
+      </div>
+
+    </div>
+  </div>
+  
+  <script src="script.js"></script>
+</body>
+</html>
