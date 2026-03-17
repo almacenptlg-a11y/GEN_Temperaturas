@@ -105,6 +105,13 @@
               <p id="desc-estado" class="text-xs sm:text-sm font-medium leading-tight"></p>
            </div>
         </div>
+
+        <div class="flex justify-between items-end mb-2">
+  <label class="block text-sm font-bold text-gray-700 dark:text-gray-300"><i class="ph ph-video-camera text-blue-600 dark:text-blue-400 text-lg align-middle mr-1"></i> Cámara a Registrar</label>
+  <button type="button" id="btn-abrir-gestor-camaras" class="hidden text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors cursor-pointer bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded">
+    <i class="ph ph-gear"></i> Gestionar Cámaras
+  </button>
+</div>
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
           <div class="md:col-span-2">
@@ -384,7 +391,77 @@
           <em>La Genovesa Agroindustrias S.A. RUC: 20119873542 <br> Parque industrial Mz. I Lt. 10 Tacna - Tacna - Perú</em>
       </div>
   </div>
-  
+  <div id="modal-gestor-camaras" class="fixed inset-0 z-50 hidden bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/80">
+        <h3 class="font-black text-gray-800 dark:text-white text-lg"><i class="ph ph-nut text-blue-600 dark:text-blue-400 mr-2"></i>Gestor de Cámaras</h3>
+        <button type="button" id="btn-cerrar-gestor" class="text-gray-400 hover:text-red-500 transition-colors"><i class="ph ph-x text-2xl"></i></button>
+      </div>
+
+      <div class="p-6 overflow-y-auto flex-grow">
+        
+        <div class="mb-6 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
+          <label class="block text-xs font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider mb-2">Acción a realizar</label>
+          <select id="gestor-selector" class="w-full rounded-lg border-blue-200 dark:border-blue-700 bg-white dark:bg-gray-800 dark:text-white py-2 px-3 shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+            <option value="NEW">✨ CREAR NUEVA CÁMARA</option>
+            </select>
+        </div>
+
+        <form id="form-gestor-camara" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2 hidden">
+            <input type="text" id="gestor-id" readonly>
+          </div>
+
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Nombre de la Cámara</label>
+            <input type="text" id="gestor-nombre" required placeholder="Ej: TUNEL DE CONGELACIÓN 2" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 outline-none uppercase">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Tipo</label>
+            <select id="gestor-tipo" required class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm focus:ring-blue-500 outline-none">
+              <option value="REFRIGERACION">REFRIGERACIÓN</option>
+              <option value="CONGELACION">CONGELACIÓN</option>
+              <option value="AMBIENTE">AMBIENTE / SECO</option>
+              <option value="MADURACION">MADURACIÓN</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Área Asignada (Gestión)</label>
+            <input type="text" id="gestor-area" required placeholder="Ej: PRODUCCION" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm focus:ring-blue-500 outline-none uppercase">
+          </div>
+
+          <div class="p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-900/30">
+            <label class="block text-xs font-bold text-red-600 dark:text-red-400 uppercase mb-2"><i class="ph ph-thermometer-simple"></i> Temp Mínima (°C)</label>
+            <input type="number" id="gestor-min-temp" step="0.1" required class="w-full rounded border-red-200 dark:border-red-800 bg-white dark:bg-gray-800 dark:text-white py-1.5 px-3 border shadow-sm text-sm focus:ring-red-500 outline-none font-bold text-center">
+          </div>
+          <div class="p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-900/30">
+            <label class="block text-xs font-bold text-red-600 dark:text-red-400 uppercase mb-2"><i class="ph ph-thermometer-hot"></i> Temp Máxima (°C)</label>
+            <input type="number" id="gestor-max-temp" step="0.1" required class="w-full rounded border-red-200 dark:border-red-800 bg-white dark:bg-gray-800 dark:text-white py-1.5 px-3 border shadow-sm text-sm focus:ring-red-500 outline-none font-bold text-center">
+          </div>
+
+          <div class="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/30">
+            <label class="block text-xs font-bold text-blue-600 dark:text-blue-400 uppercase mb-2"><i class="ph ph-drop"></i> HR Mínima (%) *Opcional</label>
+            <input type="number" id="gestor-min-hr" step="0.1" class="w-full rounded border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 dark:text-white py-1.5 px-3 border shadow-sm text-sm focus:ring-blue-500 outline-none font-bold text-center placeholder-gray-400" placeholder="Dejar vacío si no aplica">
+          </div>
+          <div class="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/30">
+            <label class="block text-xs font-bold text-blue-600 dark:text-blue-400 uppercase mb-2"><i class="ph ph-drop"></i> HR Máxima (%) *Opcional</label>
+            <input type="number" id="gestor-max-hr" step="0.1" class="w-full rounded border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 dark:text-white py-1.5 px-3 border shadow-sm text-sm focus:ring-blue-500 outline-none font-bold text-center placeholder-gray-400" placeholder="Dejar vacío si no aplica">
+          </div>
+
+        </form>
+      </div>
+
+      <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex justify-end gap-3">
+        <button type="button" id="btn-cancelar-gestor" class="px-4 py-2 font-bold text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm">Cancelar</button>
+        <button type="submit" form="form-gestor-camara" id="btn-guardar-gestor" class="px-6 py-2 font-bold text-white bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 transition-colors text-sm flex items-center gap-2">
+          <i class="ph ph-floppy-disk text-lg"></i> Guardar Cámara
+        </button>
+      </div>
+
+    </div>
+  </div>
   <script src="script.js"></script>
 </body>
 </html>
