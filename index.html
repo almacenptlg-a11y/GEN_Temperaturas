@@ -21,7 +21,10 @@
   </style>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
   <style>
     /* ========================================================= */
     /* MOTOR DE IMPRESIÓN (Auditoría Clean Format)               */
@@ -75,12 +78,15 @@
       </div>
     </div>
 
-    <div class="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
-      <button id="tab-registro" class="flex-1 py-3 px-4 font-bold text-sm sm:text-base border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 transition-colors">
+   <div class="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 overflow-x-auto">
+      <button id="tab-registro" class="flex-1 py-3 px-4 font-bold text-sm sm:text-base border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 transition-colors whitespace-nowrap">
         <i class="ph ph-pencil-simple inline-block align-middle mr-1 text-lg"></i> Registro Diario
       </button>
-      <button id="tab-revision" class="flex-1 py-3 px-4 font-bold text-sm sm:text-base border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-        <i class="ph ph-table inline-block align-middle mr-1 text-lg"></i> Revisión Jefatura
+      <button id="tab-revision" class="flex-1 py-3 px-4 font-bold text-sm sm:text-base border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors whitespace-nowrap">
+        <i class="ph ph-table inline-block align-middle mr-1 text-lg"></i> Reporte Mensual
+      </button>
+      <button id="tab-dashboard" class="flex-1 py-3 px-4 font-bold text-sm sm:text-base border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors whitespace-nowrap">
+        <i class="ph ph-chart-polar inline-block align-middle mr-1 text-lg"></i> Dashboard KPI
       </button>
     </div>
 
@@ -218,6 +224,60 @@
         </div>
 
     </div>
+
+    <div id="vista-dashboard" class="p-3 sm:p-6 md:p-8 hidden flex-col h-full flex-grow bg-gray-50/50 dark:bg-gray-900/20">
+      
+      <div class="flex flex-col sm:flex-row gap-3 mb-6 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm items-end">
+        <div class="flex-1 w-full">
+          <label class="block text-[10px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Mes de Análisis</label>
+          <select id="dash-mes" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500">
+            <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+            <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+            <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+        </div>
+        <div class="flex-1 w-full">
+          <label class="block text-[10px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Año</label>
+          <select id="dash-anio" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-white py-2 px-3 border shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500">
+            <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
+          </select>
+        </div>
+        <div class="w-full sm:w-auto">
+          <button id="btn-generar-dashboard" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors flex justify-center items-center gap-2 text-sm h-[38px] shadow-sm">
+            <i class="ph ph-arrows-clockwise text-lg"></i> Analizar
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-4">
+          <div class="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg"><i class="ph ph-clipboard-text text-3xl"></i></div>
+          <div><p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Cumplimiento General</p><h3 id="kpi-cumplimiento" class="text-2xl font-black text-gray-800 dark:text-gray-100">- %</h3></div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-4">
+          <div class="p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg"><i class="ph ph-warning-octagon text-3xl"></i></div>
+          <div><p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Desviaciones HACCP</p><h3 id="kpi-incidencias" class="text-2xl font-black text-gray-800 dark:text-gray-100">-</h3></div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-4">
+          <div class="p-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg"><i class="ph ph-thermometer-hot text-3xl"></i></div>
+          <div><p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Cámara más Crítica</p><h3 id="kpi-critica" class="text-lg font-bold text-gray-800 dark:text-gray-100 leading-tight">-</h3></div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow min-h-[300px]">
+        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col">
+          <h4 class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4 border-b border-gray-100 dark:border-gray-700 pb-2"><i class="ph ph-chart-bar mr-1"></i> Desviaciones por Cámara</h4>
+          <div class="relative flex-grow w-full h-full min-h-[250px]"><canvas id="chartIncidencias"></canvas></div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col">
+          <h4 class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-4 border-b border-gray-100 dark:border-gray-700 pb-2"><i class="ph ph-clock mr-1"></i> Alertas por Turno de Control</h4>
+          <div class="relative flex-grow w-full h-full min-h-[250px]"><canvas id="chartTurnos"></canvas></div>
+        </div>
+      </div>
+
+    </div>
+    
   </div>
 
 
