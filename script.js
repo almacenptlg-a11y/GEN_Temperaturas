@@ -536,15 +536,29 @@ function dibujarMatrizUI() {
 
             if (reg) {
                 const desv = reg.estado === 'DESVIACION';
-                const bg = desv ? 'bg-red-50 dark:bg-red-900/20' : '';
-                const obs = desv ? `<span class="block text-[9px] text-red-500 dark:text-red-400 font-bold mt-1 cursor-help" title="Obs: ${reg.incidencia}">Ver Obs</span>` : '';
+                let bg = desv ? 'bg-red-50 dark:bg-red-900/20' : '';
+
+                // =========================================================
+                // CONSTRUCCIÓN DEL TOOLTIP ENRIQUECIDO (TRAZABILIDAD TOTAL)
+                // =========================================================
+                let tooltip = `👤 Por: ${reg.usuario || 'Desconocido'}\n🕒 Reg: ${reg.timestamp || 'Sin fecha'}`;
+                if (reg.incidencia && reg.incidencia.toString().trim() !== '') tooltip += `\n\n📌 OBSERVACIÓN INICIAL:\n${reg.incidencia}`;
+                if (reg.accionCorrectiva && reg.accionCorrectiva.toString().trim() !== '') tooltip += `\n\n🛠️ ACCIÓN CORRECTIVA:\n${reg.accionCorrectiva}`;
+                if (reg.justificacion && reg.justificacion.toString().trim() !== '') tooltip += `\n\n📝 JUSTIFICACIÓN:\n${reg.justificacion}`;
+
+                // Color sutil para editados históricamente pero que actualmente están en Rango (OK)
+                if (!desv && (reg.accionCorrectiva || reg.justificacion)) {
+                    bg = 'bg-blue-50 dark:bg-blue-900/20';
+                }
+
+                const obs = desv ? `<span class="block text-[9px] text-red-500 dark:text-red-400 font-bold mt-1 cursor-help" title="${tooltip.replace(/"/g, '&quot;')}">Ver Detalle</span>` : '';
                 
-                body += `<td class="${cClassBase} ${bg}">${crearInput(reg.temp, fechaStr, t, 'temp', puedeEditar, desv)} ${obs}</td>`;
-                if(usaHumedad) body += `<td class="${cClassBase} ${bg}">${crearInput(reg.humedad||'', fechaStr, t, 'hum', puedeEditar, desv)}</td>`;
+                body += `<td class="${cClassBase} ${bg}">${crearInput(reg.temp, fechaStr, t, 'temp', puedeEditar, desv, tooltip)} ${obs}</td>`;
+                if(usaHumedad) body += `<td class="${cClassBase} ${bg}">${crearInput(reg.humedad||'', fechaStr, t, 'hum', puedeEditar, desv, tooltip)}</td>`;
             } else {
                 const bg = inactivo ? 'bg-gray-100/50 dark:bg-gray-800/30' : '';
-                body += `<td class="${cClassBase} ${bg}">${crearInput('', fechaStr, t, 'temp', puedeEditar, false)}</td>`;
-                if(usaHumedad) body += `<td class="${cClassBase} ${bg}">${crearInput('', fechaStr, t, 'hum', puedeEditar, false)}</td>`;
+                body += `<td class="${cClassBase} ${bg}">${crearInput('', fechaStr, t, 'temp', puedeEditar, false, '')}</td>`;
+                if(usaHumedad) body += `<td class="${cClassBase} ${bg}">${crearInput('', fechaStr, t, 'hum', puedeEditar, false, '')}</td>`;
             }
         });
         body += '</tr>';
@@ -555,15 +569,16 @@ function dibujarMatrizUI() {
 // ==========================================
 // FUNCIÓN RESTAURADA: COMPORTAMIENTO Y ENTER
 // ==========================================
-function crearInput(v, f, t, tipo, puedeEditar, desv) {
+function crearInput(v, f, t, tipo, puedeEditar, desv, tooltip = '') {
+    const safeTooltip = tooltip.replace(/"/g, '&quot;');
+    
     if (!AppState.modoEdicion || !puedeEditar) {
         let style = v === '' ? 'text-gray-300 dark:text-gray-600' : (desv ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-800 dark:text-gray-300 font-semibold');
         if(tipo === 'hum' && v !== '') style = 'text-blue-600 dark:text-blue-400 font-medium';
-        return `<span class="text-sm ${style}">${v === '' ? '-' : v + (tipo === 'temp' ? '°' : '%')}</span>`;
+        return `<span class="text-sm cursor-help block ${style}" title="${safeTooltip}">${v === '' ? '-' : v + (tipo === 'temp' ? '°' : '%')}</span>`;
     }
     
-    // Se restauró el onkeydown para el Enter, el cursor-text y el control de color si está vacío
-    return `<input type="number" step="0.1" value="${v}" data-old="${v}" data-fecha="${f}" data-turno="${t}" data-tipo="${tipo}" placeholder="${tipo === 'temp' ? '°' : '%'}" class="w-full bg-transparent text-center focus:bg-blue-50 dark:focus:bg-blue-900/40 focus:ring-2 dark:focus:ring-blue-500 rounded font-bold text-sm cursor-text ${v === '' ? 'text-gray-900 dark:text-gray-100' : ''} placeholder-gray-300 dark:placeholder-gray-600 transition-colors outline-none" onblur="validarEdicionUI(this)" onkeydown="if(event.key==='Enter') this.blur()">`;
+    return `<input type="number" step="0.1" value="${v}" data-old="${v}" data-fecha="${f}" data-turno="${t}" data-tipo="${tipo}" placeholder="${tipo === 'temp' ? '°' : '%'}" title="${safeTooltip}" class="w-full bg-transparent text-center focus:bg-blue-50 dark:focus:bg-blue-900/40 focus:ring-2 dark:focus:ring-blue-500 rounded font-bold text-sm cursor-text ${v === '' ? 'text-gray-900 dark:text-gray-100' : ''} placeholder-gray-300 dark:placeholder-gray-600 transition-colors outline-none" onblur="validarEdicionUI(this)" onkeydown="if(event.key==='Enter') this.blur()">`;
 }
 
 // CONTROLADOR ASÍNCRONO DEL MODAL PERSONALIZADO
@@ -596,7 +611,7 @@ function solicitarTextoModal(titulo, mensaje, iconoClase, colorIcono) {
         const onConfirm = () => {
             const val = inputEl.value.trim();
             if (!val) {
-                errorEl.classList.remove('hidden'); // Muestra advertencia de campo obligatorio
+                errorEl.classList.remove('hidden'); 
                 inputEl.focus();
                 return;
             }
@@ -656,7 +671,6 @@ async function validarEdicionUI(input) {
 
     // 2. Recolección Estricta usando el MODAL UI
     if (isDesv) {
-        // Lanzamos el modal con diseño rojo/alerta
         accionCorrectivaVal = await solicitarTextoModal(
             "Acción Correctiva Requerida", 
             "⚠️ Valores Fuera de Rango (HACCP). Ingrese la ACCIÓN CORRECTIVA ejecutada (Obligatorio):",
@@ -667,7 +681,6 @@ async function validarEdicionUI(input) {
     }
 
     if (requiereJustificacion) {
-        // Lanzamos el modal con diseño ámbar/edición
         justificacionVal = await solicitarTextoModal(
             "Justificación de Edición", 
             "📝 Modificación Histórica Detectada. Indique el motivo de esta alteración (Obligatorio):",
@@ -1017,7 +1030,6 @@ const btnCancelarGestor = document.getElementById('btn-cancelar-gestor');
 const selectorGestor = document.getElementById('gestor-selector');
 const formGestor = document.getElementById('form-gestor-camara');
 
-// Función analítica para extraer Tipos y Áreas únicas de la BD
 function cargarTiposYAreasEnGestor() {
     const selectArea = document.getElementById('gestor-area');
     const selectTipo = document.getElementById('gestor-tipo');
@@ -1047,7 +1059,6 @@ function cargarTiposYAreasEnGestor() {
     }
 }
 
-// NUEVA FUNCIÓN: Asignación a prueba de fallos para los Selects y inputs "OTRO"
 function setSelectOrOtro(selectId, inputOtroId, valueToSet) {
     const selectEl = document.getElementById(selectId);
     const inputOtroEl = document.getElementById(inputOtroId);
@@ -1062,14 +1073,12 @@ function setSelectOrOtro(selectId, inputOtroId, valueToSet) {
 
     const normalizedValue = valueToSet.toString().trim().toUpperCase();
     
-    // Buscar si el valor existe en las opciones (ignorando mayúsculas/espacios)
     const optionMatch = Array.from(selectEl.options).find(opt => opt.value.trim().toUpperCase() === normalizedValue);
 
     if (optionMatch && optionMatch.value !== 'OTRO') {
         selectEl.value = optionMatch.value;
         if (inputOtroEl) { inputOtroEl.classList.add('hidden'); inputOtroEl.removeAttribute('required'); inputOtroEl.value = ''; }
     } else {
-        // Si no existe, forzamos "OTRO" y llenamos el input oculto
         selectEl.value = 'OTRO';
         if (inputOtroEl) {
             inputOtroEl.value = normalizedValue;
@@ -1079,7 +1088,6 @@ function setSelectOrOtro(selectId, inputOtroId, valueToSet) {
     }
 }
 
-// Escuchadores dinámicos para mostrar/ocultar inputs "OTRO" en tiempo real
 ['gestor-tipo', 'gestor-area'].forEach(id => {
     const el = document.getElementById(id);
     if(el) {
@@ -1100,7 +1108,6 @@ function setSelectOrOtro(selectId, inputOtroId, valueToSet) {
     }
 });
 
-// ABRIR GESTOR
 if (btnAbrirGestor) {
     btnAbrirGestor.addEventListener('click', () => {
         if (selectorGestor) {
@@ -1112,9 +1119,8 @@ if (btnAbrirGestor) {
         if (formGestor) formGestor.reset();
         document.getElementById('gestor-id').value = '';
         
-        cargarTiposYAreasEnGestor(); // Extrae la data fresca de la BD
+        cargarTiposYAreasEnGestor(); 
         
-        // Resetear visualmente los campos OTRO
         setSelectOrOtro('gestor-tipo', 'gestor-tipo-otro', '');
         setSelectOrOtro('gestor-area', 'gestor-area-otro', '');
         
@@ -1122,14 +1128,12 @@ if (btnAbrirGestor) {
     });
 }
 
-// CERRAR GESTOR
 [btnCerrarGestor, btnCancelarGestor].forEach(btn => {
     if(btn) btn.addEventListener('click', () => {
         if (modalGestor) modalGestor.classList.add('hidden');
     });
 });
 
-// LÓGICA AL SELECCIONAR CREAR O EDITAR
 if (selectorGestor) {
     selectorGestor.addEventListener('change', (e) => {
         const val = e.target.value;
@@ -1149,7 +1153,6 @@ if (selectorGestor) {
                 document.getElementById('gestor-min-hr').value = c.minHr ? (c.minHr<=1 ? c.minHr*100 : c.minHr) : '';
                 document.getElementById('gestor-max-hr').value = c.maxHr ? (c.maxHr<=1 ? c.maxHr*100 : c.maxHr) : '';
                 
-                // Usamos la función blindada para asignar dinámicamente
                 setSelectOrOtro('gestor-tipo', 'gestor-tipo-otro', c.tipo);
                 setSelectOrOtro('gestor-area', 'gestor-area-otro', c.area);
             }
@@ -1157,7 +1160,6 @@ if (selectorGestor) {
     });
 }
 
-// GUARDAR LOS CAMBIOS AL BACKEND
 if (formGestor) {
     formGestor.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1165,7 +1167,6 @@ if (formGestor) {
         const origHTML = btn.innerHTML;
         btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
 
-        // Determinar valores finales de Tipo y Área (Resolución del "OTRO")
         const tSel = document.getElementById('gestor-tipo').value;
         const inTipoOtro = document.getElementById('gestor-tipo-otro');
         const tipoFinal = (tSel === 'OTRO' && inTipoOtro) ? inTipoOtro.value : tSel;
@@ -1194,7 +1195,7 @@ if (formGestor) {
             const res = await apiFetch({ action: 'guardarCamaraConfig', camaraData: camaraData });
             if (res.status === 'success') {
                 if (modalGestor) modalGestor.classList.add('hidden');
-                cargarCamaras(); // Refrescar en caliente
+                cargarCamaras(); 
             } else {
                 alert("Error del Servidor: " + res.message);
             }
