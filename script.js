@@ -1318,3 +1318,127 @@ window.abrirGloboInfo = function(e, dia, turno, force = false) {
     
     setTimeout(() => globo.classList.add('opacity-100'), 10);
 }
+
+// ==========================================
+// 11. MONITOREO DIARIO (CENTRO DE COMANDO)
+// ==========================================
+const tabMonitoreo = document.getElementById('tab-monitoreo');
+const btnRefrescarMonitoreo = document.getElementById('btn-refrescar-monitoreo');
+
+if(tabMonitoreo) tabMonitoreo.addEventListener('click', () => switchTab('monitoreo'));
+if(btnRefrescarMonitoreo) btnRefrescarMonitoreo.addEventListener('click', cargarCentroDeComando);
+
+// Actualización de la función switchTab existente para incluir Monitoreo:
+// (Busca tu función switchTab y asegúrate de agregar estas validaciones)
+const rolesPrivilegiados = ['CALIDAD', 'JEFE', 'GERENTE', 'ADMINISTRADOR'];
+
+// Dentro de actualizarUIUsuario(), asegura que el tab se muestre a los roles correctos:
+/*
+  if (tabMonitoreo) {
+      if (rolesPrivilegiados.includes(AppState.user.rol.toUpperCase()) || AppState.user.area.toUpperCase() === 'CALIDAD') {
+          tabMonitoreo.classList.remove('hidden'); 
+      }
+  }
+*/
+
+// Agrega este bloque dentro de tu función `switchTab(tab)`:
+/*
+  if (tab === 'monitoreo') {
+      if (!AppState.user || (!rolesPrivilegiados.includes(AppState.user.rol.toUpperCase()) && AppState.user.area.toUpperCase() !== 'CALIDAD')) {
+          return alert("Acceso denegado. Vista exclusiva para Calidad y Jefaturas.");
+      }
+      document.getElementById('vista-monitoreo').classList.replace('hidden', 'flex'); 
+      document.getElementById('tab-monitoreo').classList.add(...actClass); 
+      document.getElementById('tab-monitoreo').classList.remove(...inactClass);
+      cargarCentroDeComando();
+  }
+*/
+
+async function cargarCentroDeComando() {
+    const grid = document.getElementById('grid-monitoreo');
+    const hoyStr = document.getElementById('val-fecha').value.split('-').reverse().join('/'); // Usa la fecha del panel principal
+    
+    document.getElementById('txt-fecha-monitoreo').innerText = `Estado en vivo para el: ${hoyStr}`;
+    grid.innerHTML = '<div class="col-span-full text-center py-10"><i class="ph ph-spinner animate-spin text-4xl text-blue-500"></i><br>Escaneando planta...</div>';
+
+    try {
+        const res = await apiFetch({ action: 'getMonitoreoDiario', fechaDia: hoyStr });
+        if (res.status === 'success') {
+            dibujarTarjetasMonitoreo(res.data);
+        } else {
+            grid.innerHTML = `<div class="col-span-full text-red-500 text-center py-4">${res.message}</div>`;
+        }
+    } catch (e) {
+        grid.innerHTML = `<div class="col-span-full text-red-500 text-center py-4">Error de conexión.</div>`;
+    }
+}
+
+function dibujarTarjetasMonitoreo(camarasActivas) {
+    const grid = document.getElementById('grid-monitoreo');
+    grid.innerHTML = '';
+
+    if (camarasActivas.length === 0) {
+        grid.innerHTML = '<div class="col-span-full text-center text-gray-500 py-4">No hay cámaras configuradas en la BD.</div>';
+        return;
+    }
+
+    camarasActivas.forEach(cam => {
+        // Estilos base de la tarjeta dependiendo del estado global del día
+        let bordeAcento = "border-gray-200 dark:border-gray-700";
+        let iconoEstado = `<i class="ph ph-clock text-gray-400"></i> Pendiente`;
+        
+        if (cam.estadoGlobal === 'ALERTA') {
+            bordeAcento = "border-red-500 shadow-red-100 dark:shadow-red-900/20";
+            iconoEstado = `<i class="ph ph-warning-octagon text-red-600"></i> Desviación Activa`;
+        } else if (cam.estadoGlobal === 'OK') {
+            bordeAcento = "border-green-500 shadow-green-100 dark:shadow-green-900/20";
+            iconoEstado = `<i class="ph ph-check-circle text-green-600"></i> En Rango`;
+        }
+
+        let tarjetaHTML = `
+            <div class="bg-white dark:bg-gray-800 rounded-xl border-t-4 border-x border-b ${bordeAcento} p-4 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="font-black text-gray-800 dark:text-gray-100 text-lg leading-tight">${cam.nombre}</h3>
+                        <span class="inline-block mt-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">${cam.area}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="block text-xs font-bold text-gray-700 dark:text-gray-300">${iconoEstado}</span>
+                        <span class="block text-[10px] text-gray-400 mt-1">Últ. act: ${cam.ultimaLectura}</span>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-2 flex justify-between items-center border border-gray-100 dark:border-gray-700">
+        `;
+
+        // Generar los 6 semáforos por turno
+        TODOS_LOS_TURNOS.forEach(t => {
+            let estadoTurno = cam.turnos[t];
+            let colorBolita = "bg-gray-200 dark:bg-gray-600 border-gray-300 dark:border-gray-500"; // Pendiente
+            let textoSemaforo = "text-gray-400";
+
+            if (estadoTurno === 'OK') {
+                colorBolita = "bg-green-500 border-green-600 shadow-sm shadow-green-200 dark:shadow-green-900";
+                textoSemaforo = "text-green-600 font-bold";
+            } else if (estadoTurno === 'DESVIACION') {
+                colorBolita = "bg-red-500 border-red-600 shadow-sm shadow-red-200 dark:shadow-red-900 animate-pulse";
+                textoSemaforo = "text-red-600 font-bold";
+            }
+
+            tarjetaHTML += `
+                <div class="flex flex-col items-center gap-1 cursor-default" title="Turno: ${t} | Estado: ${estadoTurno || 'Pendiente'}">
+                    <div class="w-4 h-4 rounded-full border ${colorBolita}"></div>
+                    <span class="text-[9px] ${textoSemaforo}">${t}</span>
+                </div>
+            `;
+        });
+
+        tarjetaHTML += `
+                </div>
+            </div>
+        `;
+        
+        grid.innerHTML += tarjetaHTML;
+    });
+}
