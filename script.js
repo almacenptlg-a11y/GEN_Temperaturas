@@ -566,6 +566,57 @@ function crearInput(v, f, t, tipo, puedeEditar, desv) {
     return `<input type="number" step="0.1" value="${v}" data-old="${v}" data-fecha="${f}" data-turno="${t}" data-tipo="${tipo}" placeholder="${tipo === 'temp' ? '°' : '%'}" class="w-full bg-transparent text-center focus:bg-blue-50 dark:focus:bg-blue-900/40 focus:ring-2 dark:focus:ring-blue-500 rounded font-bold text-sm cursor-text ${v === '' ? 'text-gray-900 dark:text-gray-100' : ''} placeholder-gray-300 dark:placeholder-gray-600 transition-colors outline-none" onblur="validarEdicionUI(this)" onkeydown="if(event.key==='Enter') this.blur()">`;
 }
 
+// CONTROLADOR ASÍNCRONO DEL MODAL PERSONALIZADO
+function solicitarTextoModal(titulo, mensaje, iconoClase, colorIcono) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('modal-justificacion');
+        const titleEl = document.getElementById('modal-just-titulo');
+        const msgEl = document.getElementById('modal-just-mensaje');
+        const inputEl = document.getElementById('modal-just-input');
+        const iconEl = document.getElementById('modal-just-icono');
+        const errorEl = document.getElementById('modal-just-error');
+        const btnConfirm = document.getElementById('btn-just-confirmar');
+        const btnCancel = document.getElementById('btn-just-cancelar');
+
+        // Configuración visual dinámica
+        titleEl.textContent = titulo;
+        msgEl.textContent = mensaje;
+        iconEl.className = `${iconoClase} text-3xl ${colorIcono}`;
+        inputEl.value = '';
+        errorEl.classList.add('hidden');
+        modal.classList.remove('hidden');
+
+        // Función de limpieza para no acumular eventos fantasma
+        const cleanup = () => {
+            modal.classList.add('hidden');
+            btnConfirm.removeEventListener('click', onConfirm);
+            btnCancel.removeEventListener('click', onCancel);
+        };
+
+        const onConfirm = () => {
+            const val = inputEl.value.trim();
+            if (!val) {
+                errorEl.classList.remove('hidden'); // Muestra advertencia de campo obligatorio
+                inputEl.focus();
+                return;
+            }
+            cleanup();
+            resolve(val);
+        };
+
+        const onCancel = () => {
+            cleanup();
+            resolve(null);
+        };
+
+        btnConfirm.addEventListener('click', onConfirm);
+        btnCancel.addEventListener('click', onCancel);
+        
+        // Auto-focus para agilizar la escritura
+        setTimeout(() => inputEl.focus(), 100); 
+    });
+}
+
 async function validarEdicionUI(input) {
     const nv = input.value.trim();
     const ov = input.getAttribute('data-old').trim();
@@ -603,15 +654,27 @@ async function validarEdicionUI(input) {
          if (numH < mH || numH > xH) isDesv = true;
     }
 
-    // 2. Recolección Estricta e Independiente
+    // 2. Recolección Estricta usando el MODAL UI
     if (isDesv) {
-        accionCorrectivaVal = prompt("⚠️ Valores Fuera de Rango (HACCP).\nIngrese la ACCIÓN CORRECTIVA ejecutada (Obligatorio):");
-        if (!accionCorrectivaVal || !accionCorrectivaVal.trim()) { input.value = cv; return; }
+        // Lanzamos el modal con diseño rojo/alerta
+        accionCorrectivaVal = await solicitarTextoModal(
+            "Acción Correctiva Requerida", 
+            "⚠️ Valores Fuera de Rango (HACCP). Ingrese la ACCIÓN CORRECTIVA ejecutada (Obligatorio):",
+            "ph ph-warning-octagon",
+            "text-red-500"
+        );
+        if (!accionCorrectivaVal) { input.value = cv; return; }
     }
 
     if (requiereJustificacion) {
-        justificacionVal = prompt("📝 Modificación Histórica Detectada.\nIndique la JUSTIFICACIÓN de esta alteración (Obligatorio):");
-        if (!justificacionVal || !justificacionVal.trim()) { input.value = cv; return; }
+        // Lanzamos el modal con diseño ámbar/edición
+        justificacionVal = await solicitarTextoModal(
+            "Justificación de Edición", 
+            "📝 Modificación Histórica Detectada. Indique el motivo de esta alteración (Obligatorio):",
+            "ph ph-pencil-simple-slash",
+            "text-amber-500"
+        );
+        if (!justificacionVal) { input.value = cv; return; }
     }
 
     // 3. Empaquetado del Payload
