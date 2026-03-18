@@ -300,19 +300,37 @@ if(formRegistro) {
         const turnoElegido = document.getElementById('turno-seleccionado').value;
         if (!turnoElegido) return alert("Seleccione un turno disponible.");
 
+        // EVALUACIÓN HACCP ESTRICTA: Solo las matemáticas definen el ESTADO
+        const camara = AppState.camaras.find(c => c.id.toString() === document.getElementById('camara-select').value.toString());
+        const tempVal = document.getElementById('val-temp').value;
+        const humVal = document.getElementById('val-humedad').value;
+
+        const temp = parseFloat(tempVal);
+        const hum = humVal ? parseFloat(humVal) : null;
+
+        let isDesv = false;
+        if (temp < camara.minTemp || temp > camara.maxTemp) isDesv = true;
+        if (camara.minHr && hum !== null) {
+            const mH = camara.minHr <= 1 ? camara.minHr * 100 : camara.minHr;
+            const xH = camara.maxHr <= 1 ? camara.maxHr * 100 : camara.maxHr;
+            if (hum < mH || hum > xH) isDesv = true;
+        }
+
         const btn = document.getElementById('btn-guardar-lectura');
         btn.disabled = true; 
         btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Guardando...';
 
         const payload = {
             action: 'registrarLecturaCamara',
-            idCamara: document.getElementById('camara-select').value,
+            idCamara: camara.id,
             fecha: document.getElementById('val-fecha').value.split('-').reverse().join('/'),
             turno: turnoElegido,
-            temperatura: document.getElementById('val-temp').value,
-            humedad: document.getElementById('val-humedad').value,
+            temperatura: tempVal,
+            humedad: humVal,
             incidencia: document.getElementById('val-incidencia').value,
-            userName: AppState.user.nombre 
+            userName: AppState.user.nombre,
+            // Inyectamos el estado matemático real para que el backend deje de adivinar
+            estado: isDesv ? 'DESVIACION' : 'OK' 
         };
 
         try {
