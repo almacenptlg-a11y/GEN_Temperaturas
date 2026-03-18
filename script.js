@@ -574,29 +574,28 @@ async function validarEdicionUI(input) {
     const tp = input.dataset.tipo;
     const key = `${f}_${t}`;
     
-    // Valor en el carrito de cambios (si ya lo había editado antes sin guardar)
     const cv = (AppState.cambiosCart[key] && AppState.cambiosCart[key][tp] !== undefined) ? AppState.cambiosCart[key][tp] : ov;
     if (nv === cv) return;
 
     const camara = AppState.camaras.find(c => c.id.toString() === document.getElementById('rev-camara').value.toString());
     let isDesv = false;
-    let inc = "";
+    let requiereJustificacion = (ov !== '' && nv !== ov);
+    
+    let accionCorrectivaVal = "";
+    let justificacionVal = "";
 
-    // ANÁLISIS TRANSVERSAL: Obtenemos AMBOS valores de la fila actual (Temperatura y Humedad)
     const tr = input.closest('tr');
     const iT = tr.querySelector(`input[data-fecha="${f}"][data-turno="${t}"][data-tipo="temp"]`);
     const iH = tr.querySelector(`input[data-fecha="${f}"][data-turno="${t}"][data-tipo="hum"]`);
     
-    // Si el tipo coincide con el input disparador, usamos el nuevo valor (nv), si no, usamos el valor que esté tipeado.
     const tempActual = (tp === 'temp') ? nv : (iT ? iT.value.trim() : '');
     const humActual = (tp === 'hum') ? nv : (iH ? iH.value.trim() : '');
 
-    // 1. Evaluación HACCP para Temperatura
+    // 1. Evaluación HACCP 
     if (tempActual !== '') {
         const numT = parseFloat(tempActual);
         if (numT < camara.minTemp || numT > camara.maxTemp) isDesv = true;
     }
-    // 2. Evaluación HACCP para Humedad (si aplica)
     if (humActual !== '' && camara.minHr) {
          const mH = camara.minHr <= 1 ? camara.minHr * 100 : camara.minHr;
          const xH = camara.maxHr <= 1 ? camara.maxHr * 100 : camara.maxHr;
@@ -604,41 +603,33 @@ async function validarEdicionUI(input) {
          if (numH < mH || numH > xH) isDesv = true;
     }
 
-    // Análisis de Modificación Histórica o Desviación para exigir justificación
-    if (isDesv || (ov !== '' && nv !== ov)) {
-        let mensajePrompt = "Modificación Histórica. Indique motivo:";
-        if (isDesv) mensajePrompt = "Valores Fuera de Rango (HACCP). Ingrese medida correctiva obligatoria:";
-        if (nv === "") mensajePrompt = "Eliminación de registro. Indique el motivo:";
-
-        inc = prompt(mensajePrompt);
-        
-        // Si cancela, revertimos al último estado validado
-        if (!inc || !inc.trim()) {
-            input.value = cv;
-            return; 
-        }
+    // 2. Recolección Estricta e Independiente
+    if (isDesv) {
+        accionCorrectivaVal = prompt("⚠️ Valores Fuera de Rango (HACCP).\nIngrese la ACCIÓN CORRECTIVA ejecutada (Obligatorio):");
+        if (!accionCorrectivaVal || !accionCorrectivaVal.trim()) { input.value = cv; return; }
     }
 
-    // Construcción o actualización del Carrito de Cambios
+    if (requiereJustificacion) {
+        justificacionVal = prompt("📝 Modificación Histórica Detectada.\nIndique la JUSTIFICACIÓN de esta alteración (Obligatorio):");
+        if (!justificacionVal || !justificacionVal.trim()) { input.value = cv; return; }
+    }
+
+    // 3. Empaquetado del Payload
     if (!AppState.cambiosCart[key]) {
         AppState.cambiosCart[key] = { 
-            fecha: f, 
-            turno: t, 
+            fecha: f, turno: t, 
             temp: iT ? iT.getAttribute('data-old') : '', 
             hum: iH ? iH.getAttribute('data-old') : '', 
-            incidencia: '',
-            estado: '' 
+            accionCorrectiva: '', justificacion: '', estado: '' 
         };
     }
     
     AppState.cambiosCart[key][tp] = nv;
-    if (inc) AppState.cambiosCart[key].incidencia = inc;
-    
-    // INYECCIÓN DE ESTADO CALCULADO: Forzamos la actualización al backend
-    // Si isDesv es true, el estado es DESVIACION. Si es falso (fue corregido), pasa a OK.
+    if (accionCorrectivaVal) AppState.cambiosCart[key].accionCorrectiva = accionCorrectivaVal;
+    if (justificacionVal) AppState.cambiosCart[key].justificacion = justificacionVal;
     AppState.cambiosCart[key].estado = isDesv ? 'DESVIACION' : 'OK';
 
-    // Lógica de Restauración Visual UI
+    // 4. Restauración Visual UI
     const isTempOriginal = (iT ? iT.getAttribute('data-old') : '') === tempActual;
     const isHumOriginal = (iH ? iH.getAttribute('data-old') : '') === humActual;
 
