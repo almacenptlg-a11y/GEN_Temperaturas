@@ -71,12 +71,28 @@ function actualizarUIUsuario() {
     const rolesDashboard = ['JEFE', 'GERENTE', 'ADMINISTRADOR'];
     const rolesMonitoreo = ['CALIDAD', 'JEFE', 'GERENTE', 'ADMINISTRADOR']; 
 
-    // CONTROL TABS
+    // CONTROL TABS (Dashboard)
     const tabDash = document.getElementById('tab-dashboard');
-    if (tabDash) tabDash.style.display = rolesDashboard.includes(AppState.user.rol.toUpperCase()) ? '' : 'none';
+    if (tabDash) {
+        if(rolesDashboard.includes(AppState.user.rol.toUpperCase())) {
+            tabDash.style.display = '';
+            tabDash.classList.remove('hidden');
+        } else {
+            tabDash.style.display = 'none';
+        }
+    }
 
+    // CONTROL TABS (Monitoreo) - CORRECCIÓN DE TAILWIND
     const tabMonitoreo = document.getElementById('tab-monitoreo');
-    if (tabMonitoreo) tabMonitoreo.style.display = (rolesMonitoreo.includes(AppState.user.rol.toUpperCase()) || AppState.user.area.toUpperCase() === 'CALIDAD') ? '' : 'none';
+    if (tabMonitoreo) {
+        if(rolesMonitoreo.includes(AppState.user.rol.toUpperCase()) || AppState.user.area.toUpperCase() === 'CALIDAD') {
+            tabMonitoreo.style.display = '';
+            tabMonitoreo.classList.remove('hidden'); // Aquí estaba el truco
+        } else {
+            tabMonitoreo.style.display = 'none';
+            tabMonitoreo.classList.add('hidden');
+        }
+    }
 
     // CONTROL GESTOR
     const btnGestor = document.getElementById('btn-abrir-gestor-camaras');
@@ -1347,32 +1363,6 @@ const btnRefrescarMonitoreo = document.getElementById('btn-refrescar-monitoreo')
 
 if(tabMonitoreo) tabMonitoreo.addEventListener('click', () => switchTab('monitoreo'));
 if(btnRefrescarMonitoreo) btnRefrescarMonitoreo.addEventListener('click', cargarCentroDeComando);
-
-// Actualización de la función switchTab existente para incluir Monitoreo:
-// (Busca tu función switchTab y asegúrate de agregar estas validaciones)
-const rolesPrivilegiados = ['CALIDAD', 'JEFE', 'GERENTE', 'ADMINISTRADOR'];
-
-// Dentro de actualizarUIUsuario(), asegura que el tab se muestre a los roles correctos:
-/*
-  if (tabMonitoreo) {
-      if (rolesPrivilegiados.includes(AppState.user.rol.toUpperCase()) || AppState.user.area.toUpperCase() === 'CALIDAD') {
-          tabMonitoreo.classList.remove('hidden'); 
-      }
-  }
-*/
-
-// Agrega este bloque dentro de tu función `switchTab(tab)`:
-/*
-  if (tab === 'monitoreo') {
-      if (!AppState.user || (!rolesPrivilegiados.includes(AppState.user.rol.toUpperCase()) && AppState.user.area.toUpperCase() !== 'CALIDAD')) {
-          return alert("Acceso denegado. Vista exclusiva para Calidad y Jefaturas.");
-      }
-      document.getElementById('vista-monitoreo').classList.replace('hidden', 'flex'); 
-      document.getElementById('tab-monitoreo').classList.add(...actClass); 
-      document.getElementById('tab-monitoreo').classList.remove(...inactClass);
-      cargarCentroDeComando();
-  }
-*/
 
 async function cargarCentroDeComando() {
     const grid = document.getElementById('grid-monitoreo');
