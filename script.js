@@ -67,25 +67,22 @@ function actualizarUIUsuario() {
     if(!AppState.user) return;
     document.getElementById('txt-usuario-activo').innerHTML = `<i class="ph ph-user-check"></i> ${AppState.user.nombre} | ${AppState.user.area}`;
 
-    // CONTROL DE ACCESO VISUAL AL DASHBOARD
+    // NIVELES DE ACCESO
     const rolesDashboard = ['JEFE', 'GERENTE', 'ADMINISTRADOR'];
-    const tabDash = document.getElementById('tab-dashboard');
-    if (tabDash) {
-        if (rolesDashboard.includes(AppState.user.rol.toUpperCase())) {
-            tabDash.style.display = ''; 
-        } else {
-            tabDash.style.display = 'none'; 
-        }
-    }
+    const rolesMonitoreo = ['CALIDAD', 'JEFE', 'GERENTE', 'ADMINISTRADOR']; 
 
-    // CONTROL DE ACCESO VISUAL AL GESTOR DE CÁMARAS
+    // CONTROL TABS
+    const tabDash = document.getElementById('tab-dashboard');
+    if (tabDash) tabDash.style.display = rolesDashboard.includes(AppState.user.rol.toUpperCase()) ? '' : 'none';
+
+    const tabMonitoreo = document.getElementById('tab-monitoreo');
+    if (tabMonitoreo) tabMonitoreo.style.display = (rolesMonitoreo.includes(AppState.user.rol.toUpperCase()) || AppState.user.area.toUpperCase() === 'CALIDAD') ? '' : 'none';
+
+    // CONTROL GESTOR
     const btnGestor = document.getElementById('btn-abrir-gestor-camaras');
     if (btnGestor) {
-        if (rolesDashboard.includes(AppState.user.rol.toUpperCase())) {
-            btnGestor.classList.remove('hidden'); 
-        } else {
-            btnGestor.classList.add('hidden'); 
-        }
+        if (rolesDashboard.includes(AppState.user.rol.toUpperCase())) btnGestor.classList.remove('hidden'); 
+        else btnGestor.classList.add('hidden'); 
     }
 }
 
@@ -369,37 +366,52 @@ if(tabDash) tabDash.addEventListener('click', () => switchTab('dashboard'));
 
 function switchTab(tab) {
     const rolesDashboard = ['JEFE', 'GERENTE', 'ADMINISTRADOR'];
+    const rolesMonitoreo = ['CALIDAD', 'JEFE', 'GERENTE', 'ADMINISTRADOR'];
     
-    // BLINDAJE LÓGICO DEL DASHBOARD
+    // BLINDAJE LÓGICO
     if (tab === 'dashboard') {
         if (!AppState.user || !rolesDashboard.includes(AppState.user.rol.toUpperCase())) {
             return alert("Acceso denegado. El Dashboard es exclusivo para Jefaturas y Gerencia.");
         }
     }
+    if (tab === 'monitoreo') {
+        if (!AppState.user || (!rolesMonitoreo.includes(AppState.user.rol.toUpperCase()) && AppState.user.area.toUpperCase() !== 'CALIDAD')) {
+            return alert("Acceso denegado. Vista exclusiva para Calidad y Jefaturas.");
+        }
+    }
 
+    // CAPTURAR ELEMENTOS HTML
     const vReg = document.getElementById('vista-registro');
     const vRev = document.getElementById('vista-revision');
     const vDash = document.getElementById('vista-dashboard'); 
+    const vMon = document.getElementById('vista-monitoreo'); // NUEVA VISTA
           
     const tReg = document.getElementById('tab-registro');
     const tRev = document.getElementById('tab-revision');
     const tDash = document.getElementById('tab-dashboard'); 
+    const tMon = document.getElementById('tab-monitoreo'); // NUEVO TAB
 
     const actClass = ['border-blue-600','text-blue-600','dark:text-blue-400'];
     const inactClass = ['border-transparent','text-gray-500','dark:text-gray-400'];
 
+    // 1. APAGAR TODAS LAS VISTAS
     if(vReg) { vReg.classList.replace('block', 'hidden'); vReg.classList.replace('flex', 'hidden'); }
     if(vRev) { vRev.classList.replace('block', 'hidden'); vRev.classList.replace('flex', 'hidden'); }
     if(vDash) { vDash.classList.replace('block', 'hidden'); vDash.classList.replace('flex', 'hidden'); }
+    if(vMon) { vMon.classList.replace('block', 'hidden'); vMon.classList.replace('flex', 'hidden'); }
 
+    // 2. APAGAR TODOS LOS TABS
     if(tReg) { tReg.classList.add(...inactClass); tReg.classList.remove(...actClass); }
     if(tRev) { tRev.classList.add(...inactClass); tRev.classList.remove(...actClass); }
     if(tDash) { tDash.classList.add(...inactClass); tDash.classList.remove(...actClass); }
+    if(tMon) { tMon.classList.add(...inactClass); tMon.classList.remove(...actClass); }
 
+    // 3. ENCENDER SOLO LA SELECCIONADA
     if (tab === 'registro' && vReg && tReg) {
         vReg.classList.replace('hidden', 'block'); 
         tReg.classList.add(...actClass); tReg.classList.remove(...inactClass);
-    } else if (tab === 'revision' && vRev && tRev) {
+    } 
+    else if (tab === 'revision' && vRev && tRev) {
         vRev.classList.replace('hidden', 'flex'); 
         tRev.classList.add(...actClass); tRev.classList.remove(...inactClass);
         const revC = document.getElementById('rev-camara');
@@ -409,7 +421,8 @@ function switchTab(tab) {
             document.getElementById('rev-mes').value = hoy.getMonth() + 1;
             document.getElementById('rev-anio').value = hoy.getFullYear();
         }
-    } else if (tab === 'dashboard' && vDash && tDash) {
+    } 
+    else if (tab === 'dashboard' && vDash && tDash) {
         vDash.classList.replace('hidden', 'flex'); 
         tDash.classList.add(...actClass); tDash.classList.remove(...inactClass);
         
@@ -420,6 +433,13 @@ function switchTab(tab) {
             dMes.value = hoy.getMonth() + 1;
             dAnio.value = hoy.getFullYear();
         }
+    }
+    else if (tab === 'monitoreo' && vMon && tMon) {
+        vMon.classList.replace('hidden', 'flex'); 
+        tMon.classList.add(...actClass); tMon.classList.remove(...inactClass);
+        
+        // Ejecutar la petición al servidor solo al abrir esta pestaña
+        cargarCentroDeComando(); 
     }
 }
 
