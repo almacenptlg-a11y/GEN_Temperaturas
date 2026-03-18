@@ -954,7 +954,7 @@ function renderizarDashboardGraficos(registros) {
 }
 
 // ==========================================
-// 9. GESTOR DE CÁMARAS (CRUD - ADMINS ONLY)
+// 9. GESTOR DE CÁMARAS (CRUD ROBUSTO)
 // ==========================================
 const modalGestor = document.getElementById('modal-gestor-camaras');
 const btnAbrirGestor = document.getElementById('btn-abrir-gestor-camaras');
@@ -963,41 +963,90 @@ const btnCancelarGestor = document.getElementById('btn-cancelar-gestor');
 const selectorGestor = document.getElementById('gestor-selector');
 const formGestor = document.getElementById('form-gestor-camara');
 
-// Función analítica para extraer Tipos y Áreas únicas de la BD y poblar los selectores
+// Función analítica para extraer Tipos y Áreas únicas de la BD
 function cargarTiposYAreasEnGestor() {
     const selectArea = document.getElementById('gestor-area');
     const selectTipo = document.getElementById('gestor-tipo');
     
     if (!Array.isArray(AppState.camaras)) return;
 
-    // 1. Extraer y poblar Áreas (Ignorando nulos y vacíos)
     if (selectArea) {
         const areasUnicas = [...new Set(
             AppState.camaras.filter(c => c && typeof c === 'object' && c.area)
-                            .map(c => c.area.toString().trim())
+                            .map(c => c.area.toString().trim().toUpperCase())
                             .filter(a => a !== '')
         )].sort();
-        
         selectArea.innerHTML = '<option value="">Seleccione un área...</option>' + 
                                areasUnicas.map(a => `<option value="${a}">${a}</option>`).join('') +
                                '<option value="OTRO">✏️ OTRA ÁREA NUEVA...</option>';
     }
 
-    // 2. Extraer y poblar Tipos (Ignorando nulos y vacíos)
     if (selectTipo) {
         const tiposUnicos = [...new Set(
             AppState.camaras.filter(c => c && typeof c === 'object' && c.tipo)
-                            .map(c => c.tipo.toString().trim())
+                            .map(c => c.tipo.toString().trim().toUpperCase())
                             .filter(t => t !== '')
         )].sort();
-        
         selectTipo.innerHTML = '<option value="">Seleccione un tipo...</option>' + 
                                tiposUnicos.map(t => `<option value="${t}">${t}</option>`).join('') +
                                '<option value="OTRO">✏️ OTRO TIPO NUEVO...</option>';
     }
 }
 
-// ABRIR GESTOR (Actualiza la llamada a la nueva función)
+// NUEVA FUNCIÓN: Asignación a prueba de fallos para los Selects y inputs "OTRO"
+function setSelectOrOtro(selectId, inputOtroId, valueToSet) {
+    const selectEl = document.getElementById(selectId);
+    const inputOtroEl = document.getElementById(inputOtroId);
+    
+    if (!selectEl) return;
+
+    if (!valueToSet || valueToSet.toString().trim() === '') {
+        selectEl.value = '';
+        if (inputOtroEl) { inputOtroEl.classList.add('hidden'); inputOtroEl.removeAttribute('required'); inputOtroEl.value = ''; }
+        return;
+    }
+
+    const normalizedValue = valueToSet.toString().trim().toUpperCase();
+    
+    // Buscar si el valor existe en las opciones (ignorando mayúsculas/espacios)
+    const optionMatch = Array.from(selectEl.options).find(opt => opt.value.trim().toUpperCase() === normalizedValue);
+
+    if (optionMatch && optionMatch.value !== 'OTRO') {
+        selectEl.value = optionMatch.value;
+        if (inputOtroEl) { inputOtroEl.classList.add('hidden'); inputOtroEl.removeAttribute('required'); inputOtroEl.value = ''; }
+    } else {
+        // Si no existe, forzamos "OTRO" y llenamos el input oculto
+        selectEl.value = 'OTRO';
+        if (inputOtroEl) {
+            inputOtroEl.value = normalizedValue;
+            inputOtroEl.classList.remove('hidden');
+            inputOtroEl.setAttribute('required', 'true');
+        }
+    }
+}
+
+// Escuchadores dinámicos para mostrar/ocultar inputs "OTRO" en tiempo real
+['gestor-tipo', 'gestor-area'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) {
+        el.addEventListener('change', (e) => {
+            const inputOtro = document.getElementById(`${id}-otro`);
+            if (!inputOtro) return;
+            
+            if (e.target.value === 'OTRO') {
+                inputOtro.classList.remove('hidden');
+                inputOtro.setAttribute('required', 'true');
+                inputOtro.focus();
+            } else {
+                inputOtro.classList.add('hidden');
+                inputOtro.removeAttribute('required');
+                inputOtro.value = '';
+            }
+        });
+    }
+});
+
+// ABRIR GESTOR
 if (btnAbrirGestor) {
     btnAbrirGestor.addEventListener('click', () => {
         if (selectorGestor) {
@@ -1007,22 +1056,17 @@ if (btnAbrirGestor) {
         }
         
         if (formGestor) formGestor.reset();
+        document.getElementById('gestor-id').value = '';
         
-        const inId = document.getElementById('gestor-id');
-        if (inId) inId.value = '';
+        cargarTiposYAreasEnGestor(); // Extrae la data fresca de la BD
         
-        // Llamada a la nueva función dinámica
-        cargarTiposYAreasEnGestor(); 
-        
-        const tipoOtro = document.getElementById('gestor-tipo-otro');
-        const areaOtro = document.getElementById('gestor-area-otro');
-        if (tipoOtro) { tipoOtro.classList.add('hidden'); tipoOtro.removeAttribute('required'); }
-        if (areaOtro) { areaOtro.classList.add('hidden'); areaOtro.removeAttribute('required'); }
+        // Resetear visualmente los campos OTRO
+        setSelectOrOtro('gestor-tipo', 'gestor-tipo-otro', '');
+        setSelectOrOtro('gestor-area', 'gestor-area-otro', '');
         
         if (modalGestor) modalGestor.classList.remove('hidden');
     });
 }
-
 
 // CERRAR GESTOR
 [btnCerrarGestor, btnCancelarGestor].forEach(btn => {
@@ -1031,69 +1075,35 @@ if (btnAbrirGestor) {
     });
 });
 
-// LÓGICA AL SELECCIONAR CREAR O EDITAR (CON BLINDAJE)
+// LÓGICA AL SELECCIONAR CREAR O EDITAR
 if (selectorGestor) {
     selectorGestor.addEventListener('change', (e) => {
         const val = e.target.value;
-        const tipoOtro = document.getElementById('gestor-tipo-otro');
-        const areaOtro = document.getElementById('gestor-area-otro');
 
         if (val === 'NEW') {
             if (formGestor) formGestor.reset();
-            const inId = document.getElementById('gestor-id');
-            if (inId) inId.value = '';
-            
-            if (tipoOtro) { tipoOtro.classList.add('hidden'); tipoOtro.removeAttribute('required'); }
-            if (areaOtro) { areaOtro.classList.add('hidden'); areaOtro.removeAttribute('required'); }
+            document.getElementById('gestor-id').value = '';
+            setSelectOrOtro('gestor-tipo', 'gestor-tipo-otro', '');
+            setSelectOrOtro('gestor-area', 'gestor-area-otro', '');
         } else {
             const c = AppState.camaras.find(cam => cam.id.toString() === val);
             if(c) {
-                const inId = document.getElementById('gestor-id');
-                const inNombre = document.getElementById('gestor-nombre');
-                if (inId) inId.value = c.id;
-                if (inNombre) inNombre.value = c.nombre;
+                document.getElementById('gestor-id').value = c.id || '';
+                document.getElementById('gestor-nombre').value = c.nombre || '';
+                document.getElementById('gestor-min-temp').value = c.minTemp !== null ? c.minTemp : '';
+                document.getElementById('gestor-max-temp').value = c.maxTemp !== null ? c.maxTemp : '';
+                document.getElementById('gestor-min-hr').value = c.minHr ? (c.minHr<=1 ? c.minHr*100 : c.minHr) : '';
+                document.getElementById('gestor-max-hr').value = c.maxHr ? (c.maxHr<=1 ? c.maxHr*100 : c.maxHr) : '';
                 
-                // Mapeo dinámico del Tipo
-                const tipoSelect = document.getElementById('gestor-tipo');
-                if (tipoSelect) {
-                    let foundTipo = Array.from(tipoSelect.options).some(opt => opt.value === c.tipo);
-                    if(!foundTipo && c.tipo) {
-                        tipoSelect.value = 'OTRO';
-                        if (tipoOtro) { tipoOtro.value = c.tipo; tipoOtro.classList.remove('hidden'); tipoOtro.setAttribute('required', 'true'); }
-                    } else {
-                        tipoSelect.value = c.tipo;
-                        if (tipoOtro) { tipoOtro.classList.add('hidden'); tipoOtro.removeAttribute('required'); }
-                    }
-                }
-
-                // Mapeo dinámico del Área
-                const areaSelect = document.getElementById('gestor-area');
-                if (areaSelect) {
-                    let foundArea = Array.from(areaSelect.options).some(opt => opt.value === c.area);
-                    if(!foundArea && c.area) {
-                        areaSelect.value = 'OTRO';
-                        if (areaOtro) { areaOtro.value = c.area; areaOtro.classList.remove('hidden'); areaOtro.setAttribute('required', 'true'); }
-                    } else {
-                        areaSelect.value = c.area || '';
-                        if (areaOtro) { areaOtro.classList.add('hidden'); areaOtro.removeAttribute('required'); }
-                    }
-                }
-                
-                const inMinT = document.getElementById('gestor-min-temp');
-                const inMaxT = document.getElementById('gestor-max-temp');
-                const inMinH = document.getElementById('gestor-min-hr');
-                const inMaxH = document.getElementById('gestor-max-hr');
-                
-                if (inMinT) inMinT.value = c.minTemp;
-                if (inMaxT) inMaxT.value = c.maxTemp;
-                if (inMinH) inMinH.value = c.minHr ? (c.minHr<=1 ? c.minHr*100 : c.minHr) : '';
-                if (inMaxH) inMaxH.value = c.maxHr ? (c.maxHr<=1 ? c.maxHr*100 : c.maxHr) : '';
+                // Usamos la función blindada para asignar dinámicamente
+                setSelectOrOtro('gestor-tipo', 'gestor-tipo-otro', c.tipo);
+                setSelectOrOtro('gestor-area', 'gestor-area-otro', c.area);
             }
         }
     });
 }
 
-// GUARDAR LOS CAMBIOS
+// GUARDAR LOS CAMBIOS AL BACKEND
 if (formGestor) {
     formGestor.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1101,18 +1111,18 @@ if (formGestor) {
         const origHTML = btn.innerHTML;
         btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i> Guardando...';
 
-        // Determinar valores finales de Tipo y Área (Si es "OTRO", toma el valor del input oculto)
+        // Determinar valores finales de Tipo y Área (Resolución del "OTRO")
         const tSel = document.getElementById('gestor-tipo').value;
         const inTipoOtro = document.getElementById('gestor-tipo-otro');
-        const tipoFinal = (tSel === 'OTRO' && inTipoOtro) ? inTipoOtro.value.toUpperCase().trim() : tSel;
+        const tipoFinal = (tSel === 'OTRO' && inTipoOtro) ? inTipoOtro.value : tSel;
         
         const aSel = document.getElementById('gestor-area').value;
         const inAreaOtro = document.getElementById('gestor-area-otro');
-        const areaFinal = (aSel === 'OTRO' && inAreaOtro) ? inAreaOtro.value.toUpperCase().trim() : aSel;
+        const areaFinal = (aSel === 'OTRO' && inAreaOtro) ? inAreaOtro.value : aSel;
 
         const camaraData = {
             id: document.getElementById('gestor-id').value,
-            nombre: document.getElementById('gestor-nombre').value.toUpperCase().trim(),
+            nombre: document.getElementById('gestor-nombre').value,
             tipo: tipoFinal,
             area: areaFinal,
             minTemp: parseFloat(document.getElementById('gestor-min-temp').value),
@@ -1122,18 +1132,17 @@ if (formGestor) {
         };
 
         if(camaraData.minTemp > camaraData.maxTemp) {
-            alert("Error: La temperatura mínima no puede ser mayor a la máxima.");
+            alert("Error de lógica: La temperatura mínima no puede ser mayor a la máxima.");
             btn.disabled = false; btn.innerHTML = origHTML; return;
         }
 
         try {
             const res = await apiFetch({ action: 'guardarCamaraConfig', camaraData: camaraData });
             if (res.status === 'success') {
-                alert("¡Guardado Exitoso! La interfaz se actualizará.");
                 if (modalGestor) modalGestor.classList.add('hidden');
-                cargarCamaras(); 
+                cargarCamaras(); // Refrescar en caliente
             } else {
-                alert("Error de Servidor: " + res.message);
+                alert("Error del Servidor: " + res.message);
             }
         } catch (error) {
             alert("Error de Red al intentar guardar.");
