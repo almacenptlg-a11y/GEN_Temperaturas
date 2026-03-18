@@ -532,33 +532,29 @@ function dibujarMatrizUI() {
         TODOS_LOS_TURNOS.forEach(t => {
             const reg = data.find(r => r.dia === d && r.turno === t);
             const fechaStr = `${d.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}/${anio}`;
-            const cClassBase = "px-2 py-2 text-center border-r border-b border-gray-200 dark:border-gray-700 min-w-[70px]";
+            const cClassBase = "px-2 py-2 text-center border-r border-b border-gray-200 dark:border-gray-700 min-w-[70px] relative";
 
             if (reg) {
                 const desv = reg.estado === 'DESVIACION';
                 let bg = desv ? 'bg-red-50 dark:bg-red-900/20' : '';
-
-                // =========================================================
-                // CONSTRUCCIÓN DEL TOOLTIP ENRIQUECIDO (TRAZABILIDAD TOTAL)
-                // =========================================================
-                let tooltip = `👤 Por: ${reg.usuario || 'Desconocido'}\n🕒 Reg: ${reg.timestamp || 'Sin fecha'}`;
-                if (reg.incidencia && reg.incidencia.toString().trim() !== '') tooltip += `\n\n📌 OBSERVACIÓN INICIAL:\n${reg.incidencia}`;
-                if (reg.accionCorrectiva && reg.accionCorrectiva.toString().trim() !== '') tooltip += `\n\n🛠️ ACCIÓN CORRECTIVA:\n${reg.accionCorrectiva}`;
-                if (reg.justificacion && reg.justificacion.toString().trim() !== '') tooltip += `\n\n📝 JUSTIFICACIÓN:\n${reg.justificacion}`;
 
                 // Color sutil para editados históricamente pero que actualmente están en Rango (OK)
                 if (!desv && (reg.accionCorrectiva || reg.justificacion)) {
                     bg = 'bg-blue-50 dark:bg-blue-900/20';
                 }
 
-                const obs = desv ? `<span class="block text-[9px] text-red-500 dark:text-red-400 font-bold mt-1 cursor-help" title="${tooltip.replace(/"/g, '&quot;')}">Ver Detalle</span>` : '';
+                // Clases dinámicas: Si NO estamos editando, la celda entera es clickeable
+                const hoverClass = !AppState.modoEdicion ? "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors celda-info-trigger" : "";
+
+                // El badge "Ver Detalle" ahora fuerza el globo incluso en modo edición
+                const obs = desv ? `<span class="block text-[9px] text-red-500 dark:text-red-400 font-bold mt-1 cursor-pointer hover:underline celda-info-trigger" onclick="abrirGloboInfo(event, ${d}, '${t}', true)">Ver Detalle</span>` : '';
                 
-                body += `<td class="${cClassBase} ${bg}">${crearInput(reg.temp, fechaStr, t, 'temp', puedeEditar, desv, tooltip)} ${obs}</td>`;
-                if(usaHumedad) body += `<td class="${cClassBase} ${bg}">${crearInput(reg.humedad||'', fechaStr, t, 'hum', puedeEditar, desv, tooltip)}</td>`;
+                body += `<td class="${cClassBase} ${bg} ${hoverClass}" onclick="abrirGloboInfo(event, ${d}, '${t}')">${crearInput(reg.temp, fechaStr, t, 'temp', puedeEditar, desv)} ${obs}</td>`;
+                if(usaHumedad) body += `<td class="${cClassBase} ${bg} ${hoverClass}" onclick="abrirGloboInfo(event, ${d}, '${t}')">${crearInput(reg.humedad||'', fechaStr, t, 'hum', puedeEditar, desv)}</td>`;
             } else {
                 const bg = inactivo ? 'bg-gray-100/50 dark:bg-gray-800/30' : '';
-                body += `<td class="${cClassBase} ${bg}">${crearInput('', fechaStr, t, 'temp', puedeEditar, false, '')}</td>`;
-                if(usaHumedad) body += `<td class="${cClassBase} ${bg}">${crearInput('', fechaStr, t, 'hum', puedeEditar, false, '')}</td>`;
+                body += `<td class="${cClassBase} ${bg}">${crearInput('', fechaStr, t, 'temp', puedeEditar, false)}</td>`;
+                if(usaHumedad) body += `<td class="${cClassBase} ${bg}">${crearInput('', fechaStr, t, 'hum', puedeEditar, false)}</td>`;
             }
         });
         body += '</tr>';
@@ -569,16 +565,14 @@ function dibujarMatrizUI() {
 // ==========================================
 // FUNCIÓN RESTAURADA: COMPORTAMIENTO Y ENTER
 // ==========================================
-function crearInput(v, f, t, tipo, puedeEditar, desv, tooltip = '') {
-    const safeTooltip = tooltip.replace(/"/g, '&quot;');
-    
+function crearInput(v, f, t, tipo, puedeEditar, desv) {
     if (!AppState.modoEdicion || !puedeEditar) {
         let style = v === '' ? 'text-gray-300 dark:text-gray-600' : (desv ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-800 dark:text-gray-300 font-semibold');
         if(tipo === 'hum' && v !== '') style = 'text-blue-600 dark:text-blue-400 font-medium';
-        return `<span class="text-sm cursor-help block ${style}" title="${safeTooltip}">${v === '' ? '-' : v + (tipo === 'temp' ? '°' : '%')}</span>`;
+        return `<span class="text-sm block ${style}">${v === '' ? '-' : v + (tipo === 'temp' ? '°' : '%')}</span>`;
     }
     
-    return `<input type="number" step="0.1" value="${v}" data-old="${v}" data-fecha="${f}" data-turno="${t}" data-tipo="${tipo}" placeholder="${tipo === 'temp' ? '°' : '%'}" title="${safeTooltip}" class="w-full bg-transparent text-center focus:bg-blue-50 dark:focus:bg-blue-900/40 focus:ring-2 dark:focus:ring-blue-500 rounded font-bold text-sm cursor-text ${v === '' ? 'text-gray-900 dark:text-gray-100' : ''} placeholder-gray-300 dark:placeholder-gray-600 transition-colors outline-none" onblur="validarEdicionUI(this)" onkeydown="if(event.key==='Enter') this.blur()">`;
+    return `<input type="number" step="0.1" value="${v}" data-old="${v}" data-fecha="${f}" data-turno="${t}" data-tipo="${tipo}" placeholder="${tipo === 'temp' ? '°' : '%'}" class="w-full bg-transparent text-center focus:bg-blue-50 dark:focus:bg-blue-900/40 focus:ring-2 dark:focus:ring-blue-500 rounded font-bold text-sm cursor-text ${v === '' ? 'text-gray-900 dark:text-gray-100' : ''} placeholder-gray-300 dark:placeholder-gray-600 transition-colors outline-none" onblur="validarEdicionUI(this)" onkeydown="if(event.key==='Enter') this.blur()">`;
 }
 
 // CONTROLADOR ASÍNCRONO DEL MODAL PERSONALIZADO
@@ -1205,4 +1199,104 @@ if (formGestor) {
             btn.disabled = false; btn.innerHTML = origHTML;
         }
     });
+}
+
+// ==========================================
+// 10. MOTOR DE GLOBO DE INFORMACIÓN (POPOVER CREADO EN DOM)
+// ==========================================
+function inicializarGloboInfo() {
+    let globo = document.getElementById('globo-info-registro');
+    if (!globo) {
+        globo = document.createElement('div');
+        globo.id = 'globo-info-registro';
+        // Diseño premium en Tailwind, oculto por defecto
+        globo.className = 'absolute z-[100] hidden bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-300 dark:border-gray-600 p-4 w-72 text-left transform transition-opacity opacity-0';
+        
+        globo.innerHTML = `
+            <div id="globo-info-contenido" class="text-sm space-y-2"></div>
+            <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-white dark:bg-gray-800 border-b border-r border-gray-300 dark:border-gray-600 rotate-45 transition-all" id="globo-flecha"></div>
+        `;
+        document.body.appendChild(globo);
+
+        // Auto-cierre al hacer clic en cualquier lugar fuera del globo
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.celda-info-trigger') && !globo.contains(e.target)) {
+                globo.classList.add('hidden');
+                globo.classList.remove('opacity-100');
+            }
+        });
+    }
+}
+
+window.abrirGloboInfo = function(e, dia, turno, force = false) {
+    // Si estamos editando y no se forzó el clic (ej. en "Ver Detalle"), abortar
+    if (AppState.modoEdicion && !force) return; 
+    
+    const reg = AppState.revisionData.find(r => r.dia === dia && r.turno === turno);
+    if (!reg) return; 
+
+    inicializarGloboInfo();
+    const globo = document.getElementById('globo-info-registro');
+    const contenido = document.getElementById('globo-info-contenido');
+    const flecha = document.getElementById('globo-flecha');
+
+    // Construcción de la Trazabilidad
+    let html = `<div class="border-b pb-2 mb-2 border-gray-100 dark:border-gray-700 text-gray-800 dark:text-gray-200">
+                    <div class="flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400"><i class="ph ph-user-circle"></i> ${reg.usuario || 'Desconocido'}</div>
+                    <div class="text-xs text-gray-500 mt-1"><i class="ph ph-clock"></i> ${reg.timestamp || 'Sin fecha'}</div>
+                </div>`;
+    
+    if (reg.incidencia && reg.incidencia.trim() !== '') {
+        html += `<div class="mt-2 text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded">
+                    <span class="font-bold text-[11px] uppercase flex items-center gap-1"><i class="ph ph-warning-octagon"></i> Observación Inicial</span>
+                    <span class="text-xs mt-1 block break-words">${reg.incidencia}</span>
+                 </div>`;
+    }
+    if (reg.accionCorrectiva && reg.accionCorrectiva.trim() !== '') {
+        html += `<div class="mt-2 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded">
+                    <span class="font-bold text-[11px] uppercase flex items-center gap-1"><i class="ph ph-wrench"></i> Acción Correctiva</span>
+                    <span class="text-xs mt-1 block break-words">${reg.accionCorrectiva}</span>
+                 </div>`;
+    }
+    if (reg.justificacion && reg.justificacion.trim() !== '') {
+        html += `<div class="mt-2 text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
+                    <span class="font-bold text-[11px] uppercase flex items-center gap-1"><i class="ph ph-pencil-simple"></i> Justificación Edición</span>
+                    <span class="text-xs mt-1 block break-words">${reg.justificacion}</span>
+                 </div>`;
+    }
+    if(!reg.incidencia && !reg.accionCorrectiva && !reg.justificacion) {
+         html += `<div class="mt-2 text-green-600 dark:text-green-400 text-center text-xs p-1 font-bold">Registro Operativo OK</div>`;
+    }
+
+    contenido.innerHTML = html;
+    
+    // Preparar el DOM para cálculos
+    globo.classList.remove('hidden');
+    globo.classList.remove('opacity-100');
+
+    // Cálculos de Posicionamiento Inteligente Absoluto
+    const rect = e.currentTarget.getBoundingClientRect(); 
+    const globoRect = globo.getBoundingClientRect();
+    
+    // Posición base (por encima de la celda)
+    let top = rect.top + window.scrollY - globoRect.height - 10;
+    let left = rect.left + window.scrollX + (rect.width / 2) - (globoRect.width / 2);
+
+    flecha.className = "absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-white dark:bg-gray-800 border-b border-r border-gray-300 dark:border-gray-600 rotate-45 transition-all";
+
+    // Si se corta por arriba de la pantalla, lo dibujamos por DEBAJO de la celda
+    if (top < window.scrollY + 10) {
+        top = rect.bottom + window.scrollY + 10;
+        flecha.className = "absolute -top-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-white dark:bg-gray-800 border-t border-l border-gray-300 dark:border-gray-600 rotate-45 transition-all";
+    }
+
+    // Prevención de desbordamiento horizontal (Móviles)
+    if (left < 10) left = 10;
+    if (left + globoRect.width > window.innerWidth - 10) left = window.innerWidth - globoRect.width - 10;
+
+    // Aplicar estilos y transición visual suave
+    globo.style.top = top + 'px';
+    globo.style.left = left + 'px';
+    
+    setTimeout(() => globo.classList.add('opacity-100'), 10);
 }
