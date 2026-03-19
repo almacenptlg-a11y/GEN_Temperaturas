@@ -13,7 +13,8 @@ const AppState = {
     revisionData: [],
     configRev: { mes: null, anio: null, usaHumedad: false },
     cambiosCart: {},
-    modoEdicion: false
+    modoEdicion: false,
+    turnosCache: {}
 };
 
 // ==========================================
@@ -219,34 +220,43 @@ async function verificarTurnosDisponibles() {
         return;
     }
     
-    container.innerHTML = '<div class="col-span-3 md:col-span-6 text-sm text-blue-600 font-bold py-4 text-center bg-blue-50 dark:bg-blue-900/30 rounded-lg"><i class="ph ph-spinner animate-spin text-xl inline-block mr-2"></i> Consultando turnos...</div>';
+    const fechaFormat = fecha.split('-').reverse().join('/');
 
     try {
-        const fechaFormat = fecha.split('-').reverse().join('/');
-        const res = await apiFetch({ action: 'getTurnosRegistrados', idCamara: idCamara, fecha: fechaFormat });
-        
-        if (res.status === 'success') {
-            container.innerHTML = '';
-            let disp = 0;
-            TODOS_LOS_TURNOS.forEach(turno => {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                const ocupado = res.data.includes(turno);
-                
-                btn.className = ocupado 
-                    ? "py-3 rounded-xl border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed flex flex-col items-center opacity-70"
-                    : "turno-btn py-3 rounded-xl border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-blue-400 hover:bg-blue-50 transition-all flex flex-col items-center cursor-pointer shadow-sm";
-                
-                btn.innerHTML = ocupado ? `<i class="ph ph-check-square-offset text-2xl"></i><span class="font-bold text-sm">${turno}</span>` 
-                                        : `<i class="ph ph-clock text-2xl"></i><span class="font-bold text-sm">${turno}</span>`;
-                btn.disabled = ocupado;
-                if(!ocupado) { btn.onclick = () => seleccionarBotonTurno(turno, btn); disp++; }
-                container.appendChild(btn);
-            });
-            if (disp === 0) container.innerHTML = '<div class="col-span-3 md:col-span-6 text-center text-amber-700 font-bold bg-amber-50 p-4 rounded-lg">⚠️ Turnos completados.</div>';
-        } else {
-            container.innerHTML = `<div class="col-span-3 md:col-span-6 text-center text-red-600 font-bold bg-red-50 p-3 rounded-lg">${res.message}</div>`;
+        // MAGIA DEL CACHÉ: Si no tenemos los turnos de este día, pedimos la matriz completa
+        if (!AppState.turnosCache[fechaFormat]) {
+            container.innerHTML = '<div class="col-span-3 md:col-span-6 text-sm text-blue-600 font-bold py-4 text-center bg-blue-50 dark:bg-blue-900/30 rounded-lg"><i class="ph ph-spinner animate-spin text-xl inline-block mr-2"></i> Cargando cuadrícula del día...</div>';
+            const res = await apiFetch({ action: 'getTurnosPorFecha', fecha: fechaFormat });
+            
+            if (res.status === 'success') {
+                AppState.turnosCache[fechaFormat] = res.data; // Guardamos en memoria RAM
+            } else {
+                throw new Error(res.message);
+            }
         }
+
+        // RENDERIZADO INSTANTÁNEO DESDE LA MEMORIA (0 segundos de espera)
+        const ocupados = AppState.turnosCache[fechaFormat][idCamara] || [];
+        
+        container.innerHTML = '';
+        let disp = 0;
+        TODOS_LOS_TURNOS.forEach(turno => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            const ocupado = ocupados.includes(turno);
+            
+            btn.className = ocupado 
+                ? "py-3 rounded-xl border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed flex flex-col items-center opacity-70"
+                : "turno-btn py-3 rounded-xl border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:border-blue-400 hover:bg-blue-50 transition-all flex flex-col items-center cursor-pointer shadow-sm";
+            
+            btn.innerHTML = ocupado ? `<i class="ph ph-check-square-offset text-2xl"></i><span class="font-bold text-sm">${turno}</span>` 
+                                    : `<i class="ph ph-clock text-2xl"></i><span class="font-bold text-sm">${turno}</span>`;
+            btn.disabled = ocupado;
+            if(!ocupado) { btn.onclick = () => seleccionarBotonTurno(turno, btn); disp++; }
+            container.appendChild(btn);
+        });
+        if (disp === 0) container.innerHTML = '<div class="col-span-3 md:col-span-6 text-center text-amber-700 font-bold bg-amber-50 p-4 rounded-lg">⚠️ Turnos completados.</div>';
+
     } catch (e) { 
         container.innerHTML = '<div class="col-span-3 md:col-span-6 text-center text-red-600 font-bold bg-red-50 p-3 rounded-lg">Error de red.</div>'; 
     }
@@ -349,7 +359,14 @@ if(formRegistro) {
         try {
             const res = await apiFetch(payload);
             if (res.status === 'success') {
-                btn.innerHTML = '<i class="ph ph-check-circle text-xl"></i> ¡Exito!';
+            btn.innerHTML = '<i class="ph ph-check-circle text-xl"></i> ¡Exito!';
+            
+            // ACTUALIZAR MEMORIA CACHÉ LOCAL
+            const fFormat = document.getElementById('val-fecha').value.split('-').reverse().join('/');
+            if(AppState.turnosCache[fFormat]) {
+                if(!AppState.turnosCache[fFormat][camara.id]) AppState.turnosCache[fFormat][camara.id] = [];
+                AppState.turnosCache[fFormat][camara.id].push(turnoElegido);
+            }
                 setTimeout(() => {
                     document.getElementById('form-lectura-camara').reset();
                     configurarFechaInicial(); 
