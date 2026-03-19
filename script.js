@@ -18,7 +18,7 @@ const AppState = {
 };
 
 // ==========================================
-// 2. SEGURIDAD Y GESTIÓN DE SESIÓN
+// 2. SEGURIDAD Y GESTIÓN DE SESIÓN (BLINDADO)
 // ==========================================
 
 window.addEventListener('message', (event) => {
@@ -35,7 +35,13 @@ window.addEventListener('message', (event) => {
         
         AppState.user = user;
         AppState.isSessionVerified = true;
-        sessionStorage.setItem('moduloUser', JSON.stringify(user));
+        
+        // BLINDAJE 1: Evitar que Chrome mate el script por seguridad de iframes
+        try {
+            sessionStorage.setItem('moduloUser', JSON.stringify(user));
+        } catch (e) {
+            console.warn("Storage bloqueado por el navegador (Normal en iframes cruzados)");
+        }
         
         actualizarUIUsuario();
 
@@ -46,17 +52,20 @@ window.addEventListener('message', (event) => {
 document.addEventListener('DOMContentLoaded', () => {
     configurarFechaInicial();
     
-    const savedUser = sessionStorage.getItem('moduloUser');
-    if (savedUser) {
-        AppState.user = JSON.parse(savedUser);
-        
-        // ESTA ES LA LÍNEA QUE FALTABA:
-        AppState.isSessionVerified = true; 
-        
-        actualizarUIUsuario();
-        cargarCamaras(); 
+    // BLINDAJE 2: Leer caché sin crashear
+    try {
+        const savedUser = sessionStorage.getItem('moduloUser');
+        if (savedUser) {
+            AppState.user = JSON.parse(savedUser);
+            AppState.isSessionVerified = true; 
+            actualizarUIUsuario();
+            cargarCamaras(); 
+        }
+    } catch (e) {
+        console.warn("No se pudo leer sessionStorage. Esperando datos del portal...");
     }
     
+    // El script ya no muere arriba, por lo que SIEMPRE enviará este aviso al portal
     window.parent.postMessage({ type: 'MODULO_LISTO' }, '*');
     
     setTimeout(() => {
@@ -70,7 +79,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function actualizarUIUsuario() {
     if(!AppState.user) return;
-    document.getElementById('txt-usuario-activo').innerHTML = `<i class="ph ph-user-check"></i> ${AppState.user.nombre} | ${AppState.user.area}`;
+    
+    // BLINDAJE 3: Si el portal envía datos vacíos, evitamos crasheos
+    const uNombre = AppState.user.nombre || 'Usuario';
+    const uArea = AppState.user.area || 'GENERAL';
+    const uRol = AppState.user.rol || 'OPERADOR';
+    
+    document.getElementById('txt-usuario-activo').innerHTML = `<i class="ph ph-user-check"></i> ${uNombre} | ${uArea}`;
 
     // NIVELES DE ACCESO
     const rolesDashboard = ['JEFE', 'GERENTE', 'ADMINISTRADOR'];
@@ -79,7 +94,7 @@ function actualizarUIUsuario() {
     // CONTROL TABS (Dashboard)
     const tabDash = document.getElementById('tab-dashboard');
     if (tabDash) {
-        if(rolesDashboard.includes(AppState.user.rol.toUpperCase())) {
+        if(rolesDashboard.includes(uRol.toUpperCase())) {
             tabDash.style.display = '';
             tabDash.classList.remove('hidden');
         } else {
@@ -87,12 +102,12 @@ function actualizarUIUsuario() {
         }
     }
 
-    // CONTROL TABS (Monitoreo) - CORRECCIÓN DE TAILWIND
+    // CONTROL TABS (Monitoreo)
     const tabMonitoreo = document.getElementById('tab-monitoreo');
     if (tabMonitoreo) {
-        if(rolesMonitoreo.includes(AppState.user.rol.toUpperCase()) || AppState.user.area.toUpperCase() === 'CALIDAD') {
+        if(rolesMonitoreo.includes(uRol.toUpperCase()) || uArea.toUpperCase() === 'CALIDAD') {
             tabMonitoreo.style.display = '';
-            tabMonitoreo.classList.remove('hidden'); // Aquí estaba el truco
+            tabMonitoreo.classList.remove('hidden'); 
         } else {
             tabMonitoreo.style.display = 'none';
             tabMonitoreo.classList.add('hidden');
@@ -102,7 +117,7 @@ function actualizarUIUsuario() {
     // CONTROL GESTOR
     const btnGestor = document.getElementById('btn-abrir-gestor-camaras');
     if (btnGestor) {
-        if (rolesDashboard.includes(AppState.user.rol.toUpperCase())) btnGestor.classList.remove('hidden'); 
+        if (rolesDashboard.includes(uRol.toUpperCase())) btnGestor.classList.remove('hidden'); 
         else btnGestor.classList.add('hidden'); 
     }
 }
@@ -113,7 +128,6 @@ function configurarFechaInicial() {
     const inputF = document.getElementById('val-fecha');
     if(inputF) inputF.value = hoy.toISOString().split('T')[0]; 
 }
-
 // ==========================================
 // 3. CONEXIÓN API (BLINDADA)
 // ==========================================
@@ -405,14 +419,18 @@ function switchTab(tab) {
     const rolesDashboard = ['JEFE', 'GERENTE', 'ADMINISTRADOR'];
     const rolesMonitoreo = ['CALIDAD', 'JEFE', 'GERENTE', 'ADMINISTRADOR'];
     
+    // BLINDAJE 4: Prevenir crasheo por toUpperCase()
+    const uRol = AppState.user && AppState.user.rol ? AppState.user.rol.toUpperCase() : 'OPERADOR';
+    const uArea = AppState.user && AppState.user.area ? AppState.user.area.toUpperCase() : 'GENERAL';
+
     // BLINDAJE LÓGICO
     if (tab === 'dashboard') {
-        if (!AppState.user || !rolesDashboard.includes(AppState.user.rol.toUpperCase())) {
+        if (!AppState.user || !rolesDashboard.includes(uRol)) {
             return alert("Acceso denegado. El Dashboard es exclusivo para Jefaturas y Gerencia.");
         }
     }
     if (tab === 'monitoreo') {
-        if (!AppState.user || (!rolesMonitoreo.includes(AppState.user.rol.toUpperCase()) && AppState.user.area.toUpperCase() !== 'CALIDAD')) {
+        if (!AppState.user || (!rolesMonitoreo.includes(uRol) && uArea !== 'CALIDAD')) {
             return alert("Acceso denegado. Vista exclusiva para Calidad y Jefaturas.");
         }
     }
