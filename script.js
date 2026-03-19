@@ -49,6 +49,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedUser = sessionStorage.getItem('moduloUser');
     if (savedUser) {
         AppState.user = JSON.parse(savedUser);
+        
+        // ESTA ES LA LÍNEA QUE FALTABA:
+        AppState.isSessionVerified = true; 
+        
         actualizarUIUsuario();
         cargarCamaras(); 
     }
