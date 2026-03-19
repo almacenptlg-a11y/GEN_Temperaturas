@@ -2804,7 +2804,7 @@ function dibujarTarjetasMonitoreo(camarasActivas) {
                     </div>
                 </div>
 
-                <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 flex justify-between items-start border border-gray-100 dark:border-gray-700">
+                <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-2 grid grid-cols-6 place-items-center gap-1 border border-gray-100 dark:border-gray-700 overflow-hidden">
         `;
 
         // Generar los 6 semáforos por turno con sus valores
@@ -2834,12 +2834,13 @@ function dibujarTarjetasMonitoreo(camarasActivas) {
 
             let humHtml = valorHum ? `<span class="block text-[9.5px] text-blue-600 dark:text-blue-400 font-medium">${valorHum}</span>` : '';
 
+            // Estructura individual limpia sin forzar anchos mínimos
             tarjetaHTML += `
-                <div class="flex flex-col items-center gap-1 cursor-default min-w-[36px]" title="Turno: ${t} | Estado: ${estadoTurno}">
+                <div class="flex flex-col items-center gap-1 cursor-default w-full" title="Turno: ${t} | Estado: ${estadoTurno}">
                     <span class="text-[10px] ${textoSemaforo}">${t}</span>
                     <div class="w-3 h-3 rounded-full border ${colorBolita} mt-0.5"></div>
-                    <div class="text-center leading-tight mt-1 min-h-[20px]">
-                        <span class="block text-[11px] ${colorTextoVal}">${valorTemp}</span>
+                    <div class="text-center leading-tight mt-1">
+                        <span class="block text-[11px] md:text-xs ${colorTextoVal}">${valorTemp}</span>
                         ${humHtml}
                     </div>
                 </div>
