@@ -18,11 +18,17 @@ const AppState = {
 };
 
 // ==========================================
-// 2. SEGURIDAD Y GESTIÓN DE SESIÓN (BLINDADO)
+// 2. SEGURIDAD Y GESTIÓN DE SESIÓN (MODO DIOS)
 // ==========================================
 
 window.addEventListener('message', (event) => {
-    const { type, user, theme } = event.data || {};
+    // BLINDAJE 1: Soportar mensajes tanto en Objeto como en String (Súper común en iframes)
+    let data = event.data;
+    if (typeof data === 'string') {
+        try { data = JSON.parse(data); } catch (e) { return; }
+    }
+    
+    const { type, user, theme } = data || {};
     
     if (type === 'THEME_UPDATE') {
         document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -31,28 +37,25 @@ window.addEventListener('message', (event) => {
     if (type === 'SESSION_SYNC' && user) {
         document.documentElement.classList.toggle('dark', theme === 'dark');
         
-        const isNewUser = !AppState.user || AppState.user.usuario !== user.usuario;
-        
         AppState.user = user;
         AppState.isSessionVerified = true;
         
-        // BLINDAJE 1: Evitar que Chrome mate el script por seguridad de iframes
+        // BLINDAJE 2: Try/Catch estricto para memorias bloqueadas en incógnito
         try {
             sessionStorage.setItem('moduloUser', JSON.stringify(user));
         } catch (e) {
-            console.warn("Storage bloqueado por el navegador (Normal en iframes cruzados)");
+            console.warn("Navegador bloqueó la caché local. Usando sesión volátil.");
         }
         
-        actualizarUIUsuario();
-
-        if (isNewUser || AppState.camaras.length === 0) cargarCamaras();
+        // BLINDAJE 3: Evitar que fallos visuales detengan la lógica de datos
+        try { actualizarUIUsuario(); } catch(e) { console.error("Error UI Usuario:", e); }
+        try { cargarCamaras(); } catch(e) { console.error("Error UI Cámaras:", e); }
     }
 });
 
 document.addEventListener('DOMContentLoaded', () => {
     configurarFechaInicial();
     
-    // BLINDAJE 2: Leer caché sin crashear
     try {
         const savedUser = sessionStorage.getItem('moduloUser');
         if (savedUser) {
@@ -61,31 +64,42 @@ document.addEventListener('DOMContentLoaded', () => {
             actualizarUIUsuario();
             cargarCamaras(); 
         }
-    } catch (e) {
-        console.warn("No se pudo leer sessionStorage. Esperando datos del portal...");
-    }
+    } catch (e) {}
     
-    // El script ya no muere arriba, por lo que SIEMPRE enviará este aviso al portal
-    window.parent.postMessage({ type: 'MODULO_LISTO' }, '*');
+    // BLINDAJE 4: PING RECURRENTE (El Salvavidas)
+    // Si el Iframe carga antes que el portal principal, el mensaje original se pierde.
+    // Esto enviará el aviso CADA SEGUNDO hasta que el portal responda y autorice la sesión.
+    const pingInterval = setInterval(() => {
+        if (AppState.isSessionVerified) {
+            clearInterval(pingInterval); // Ya nos autorizaron, dejamos de insistir
+        } else {
+            // Mandamos ambas versiones (Objeto y String) para asegurar la comunicación
+            window.parent.postMessage({ type: 'MODULO_LISTO' }, '*');
+            window.parent.postMessage(JSON.stringify({ type: 'MODULO_LISTO' }), '*');
+        }
+    }, 1000);
     
+    // Alerta visual si después de 6 segundos el portal padre sigue sin responder
     setTimeout(() => {
         if (!AppState.isSessionVerified) {
-            document.getElementById('txt-usuario-activo').innerHTML = '<i class="ph ph-warning text-red-500"></i> Esperando autorización...';
+            const alerta = document.getElementById('txt-usuario-activo');
+            if(alerta) alerta.innerHTML = '<i class="ph ph-warning text-red-500"></i> Esperando al Portal Maestro...';
             const btn = document.getElementById('btn-guardar-lectura');
             if(btn) btn.disabled = true;
         }
-    }, 4000);
+    }, 6000);
 });
 
 function actualizarUIUsuario() {
     if(!AppState.user) return;
     
-    // BLINDAJE 3: Si el portal envía datos vacíos, evitamos crasheos
-    const uNombre = AppState.user.nombre || 'Usuario';
-    const uArea = AppState.user.area || 'GENERAL';
-    const uRol = AppState.user.rol || 'OPERADOR';
+    // BLINDAJE 5: Valores por defecto anti-crasheo
+    const uNombre = AppState.user.nombre || AppState.user.usuario || 'Usuario';
+    const uArea = (AppState.user.area || 'GENERAL').toUpperCase();
+    const uRol = (AppState.user.rol || 'OPERADOR').toUpperCase();
     
-    document.getElementById('txt-usuario-activo').innerHTML = `<i class="ph ph-user-check"></i> ${uNombre} | ${uArea}`;
+    const uiActivo = document.getElementById('txt-usuario-activo');
+    if(uiActivo) uiActivo.innerHTML = `<i class="ph ph-user-check"></i> ${uNombre} | ${uArea}`;
 
     // NIVELES DE ACCESO
     const rolesDashboard = ['JEFE', 'GERENTE', 'ADMINISTRADOR'];
@@ -94,7 +108,7 @@ function actualizarUIUsuario() {
     // CONTROL TABS (Dashboard)
     const tabDash = document.getElementById('tab-dashboard');
     if (tabDash) {
-        if(rolesDashboard.includes(uRol.toUpperCase())) {
+        if(rolesDashboard.includes(uRol)) {
             tabDash.style.display = '';
             tabDash.classList.remove('hidden');
         } else {
@@ -105,7 +119,7 @@ function actualizarUIUsuario() {
     // CONTROL TABS (Monitoreo)
     const tabMonitoreo = document.getElementById('tab-monitoreo');
     if (tabMonitoreo) {
-        if(rolesMonitoreo.includes(uRol.toUpperCase()) || uArea.toUpperCase() === 'CALIDAD') {
+        if(rolesMonitoreo.includes(uRol) || uArea === 'CALIDAD') {
             tabMonitoreo.style.display = '';
             tabMonitoreo.classList.remove('hidden'); 
         } else {
@@ -117,7 +131,7 @@ function actualizarUIUsuario() {
     // CONTROL GESTOR
     const btnGestor = document.getElementById('btn-abrir-gestor-camaras');
     if (btnGestor) {
-        if (rolesDashboard.includes(uRol.toUpperCase())) btnGestor.classList.remove('hidden'); 
+        if (rolesDashboard.includes(uRol)) btnGestor.classList.remove('hidden'); 
         else btnGestor.classList.add('hidden'); 
     }
 }
@@ -128,6 +142,8 @@ function configurarFechaInicial() {
     const inputF = document.getElementById('val-fecha');
     if(inputF) inputF.value = hoy.toISOString().split('T')[0]; 
 }
+
+
 // ==========================================
 // 3. CONEXIÓN API (BLINDADA)
 // ==========================================
