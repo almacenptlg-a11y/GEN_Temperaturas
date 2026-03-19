@@ -190,7 +190,7 @@ function manejarCambioCamara(e) {
     if (!camara) {
         ui.banner.classList.add('hidden'); ui.boxHum.classList.add('hidden');
         ui.valHum.removeAttribute('required');
-        ves(); 
+        verificarTurnosDisponibles();
         return;
     }
 
