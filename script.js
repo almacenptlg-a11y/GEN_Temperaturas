@@ -173,7 +173,7 @@ async function cargarCamaras() {
 const selCamara = document.getElementById('camara-select');
 const inFecha = document.getElementById('val-fecha');
 if(selCamara) selCamara.addEventListener('change', manejarCambioCamara);
-if(inFecha) inFecha.addEventListener('change', verificarTurnosDisponibles); 
+if(inFecha) inFecha.addEventListener('change', ves); 
 
 function manejarCambioCamara(e) {
     const camara = AppState.camaras.find(c => c.id.toString() === e.target.value.toString());
@@ -186,7 +186,7 @@ function manejarCambioCamara(e) {
     if (!camara) {
         ui.banner.classList.add('hidden'); ui.boxHum.classList.add('hidden');
         ui.valHum.removeAttribute('required');
-        verificarTurnosDisponibles(); 
+        ves(); 
         return;
     }
 
@@ -258,7 +258,7 @@ async function verificarTurnosDisponibles() {
         if (disp === 0) container.innerHTML = '<div class="col-span-3 md:col-span-6 text-center text-amber-700 font-bold bg-amber-50 p-4 rounded-lg">⚠️ Turnos completados.</div>';
 
     } catch (e) { 
-        container.innerHTML = '<div class="col-span-3 md:col-span-6 text-center text-red-600 font-bold bg-red-50 p-3 rounded-lg">Error de red.</div>'; 
+        container.innerHTML = '<div class="col-span-3 md:col-span-6 text-center text-red-600 font-bold bg-red-50 p-3 rounded-lg">Error: ${e.message}</div>`; 
     }
 }
 
