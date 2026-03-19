@@ -2768,142 +2768,90 @@ async function cargarCentroDeComando() {
 
 }
 
-
-
 function dibujarTarjetasMonitoreo(camarasActivas) {
-
     const grid = document.getElementById('grid-monitoreo');
-
     grid.innerHTML = '';
 
-
-
     if (camarasActivas.length === 0) {
-
         grid.innerHTML = '<div class="col-span-full text-center text-gray-500 py-4">No hay cámaras configuradas en la BD.</div>';
-
         return;
-
     }
 
-
-
     camarasActivas.forEach(cam => {
-
         // Estilos base de la tarjeta dependiendo del estado global del día
-
         let bordeAcento = "border-gray-200 dark:border-gray-700";
-
         let iconoEstado = `<i class="ph ph-clock text-gray-400"></i> Pendiente`;
-
         
-
         if (cam.estadoGlobal === 'ALERTA') {
-
             bordeAcento = "border-red-500 shadow-red-100 dark:shadow-red-900/20";
-
             iconoEstado = `<i class="ph ph-warning-octagon text-red-600"></i> Desviación Activa`;
-
         } else if (cam.estadoGlobal === 'OK') {
-
             bordeAcento = "border-green-500 shadow-green-100 dark:shadow-green-900/20";
-
             iconoEstado = `<i class="ph ph-check-circle text-green-600"></i> En Rango`;
-
         }
 
-
-
         let tarjetaHTML = `
-
             <div class="bg-white dark:bg-gray-800 rounded-xl border-t-4 border-x border-b ${bordeAcento} p-4 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-
                 
-
                 <div class="flex justify-between items-start mb-4">
-
                     <div>
-
                         <h3 class="font-black text-gray-800 dark:text-gray-100 text-lg leading-tight">${cam.nombre}</h3>
-
                         <span class="inline-block mt-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">${cam.area}</span>
-
                     </div>
-
                     <div class="text-right">
-
                         <span class="block text-xs font-bold text-gray-700 dark:text-gray-300">${iconoEstado}</span>
-
                         <span class="block text-[10px] text-gray-400 mt-1">Últ. act: ${cam.ultimaLectura}</span>
-
                     </div>
-
                 </div>
 
-
-
-                <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-2 flex justify-between items-center border border-gray-100 dark:border-gray-700">
-
+                <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 flex justify-between items-start border border-gray-100 dark:border-gray-700">
         `;
 
-
-
-        // Generar los 6 semáforos por turno
-
+        // Generar los 6 semáforos por turno con sus valores
         TODOS_LOS_TURNOS.forEach(t => {
-
-            let estadoTurno = cam.turnos[t];
-
-            let colorBolita = "bg-gray-200 dark:bg-gray-600 border-gray-300 dark:border-gray-500"; // Pendiente
-
+            let infoTurno = cam.turnos[t];
+            let estadoTurno = infoTurno ? infoTurno.estado : 'PENDIENTE';
+            
+            let colorBolita = "bg-gray-200 dark:bg-gray-600 border-gray-300 dark:border-gray-500"; 
             let textoSemaforo = "text-gray-400";
-
-
+            let valorTemp = "-";
+            let valorHum = "";
+            let colorTextoVal = "text-gray-400 dark:text-gray-500";
 
             if (estadoTurno === 'OK') {
-
                 colorBolita = "bg-green-500 border-green-600 shadow-sm shadow-green-200 dark:shadow-green-900";
-
                 textoSemaforo = "text-green-600 font-bold";
-
+                valorTemp = infoTurno.temp + "°";
+                valorHum = infoTurno.hum ? infoTurno.hum + "%" : "";
+                colorTextoVal = "text-gray-800 dark:text-gray-200 font-bold";
             } else if (estadoTurno === 'DESVIACION') {
-
                 colorBolita = "bg-red-500 border-red-600 shadow-sm shadow-red-200 dark:shadow-red-900 animate-pulse";
-
                 textoSemaforo = "text-red-600 font-bold";
-
+                valorTemp = infoTurno.temp + "°";
+                valorHum = infoTurno.hum ? infoTurno.hum + "%" : "";
+                colorTextoVal = "text-red-600 dark:text-red-400 font-bold";
             }
 
-
+            let humHtml = valorHum ? `<span class="block text-[9.5px] text-blue-600 dark:text-blue-400 font-medium">${valorHum}</span>` : '';
 
             tarjetaHTML += `
-
-                <div class="flex flex-col items-center gap-1 cursor-default" title="Turno: ${t} | Estado: ${estadoTurno || 'Pendiente'}">
-
-                    <div class="w-4 h-4 rounded-full border ${colorBolita}"></div>
-
-                    <span class="text-[9px] ${textoSemaforo}">${t}</span>
-
+                <div class="flex flex-col items-center gap-1 cursor-default min-w-[36px]" title="Turno: ${t} | Estado: ${estadoTurno}">
+                    <span class="text-[10px] ${textoSemaforo}">${t}</span>
+                    <div class="w-3 h-3 rounded-full border ${colorBolita} mt-0.5"></div>
+                    <div class="text-center leading-tight mt-1 min-h-[20px]">
+                        <span class="block text-[11px] ${colorTextoVal}">${valorTemp}</span>
+                        ${humHtml}
+                    </div>
                 </div>
-
             `;
-
         });
 
-
-
         tarjetaHTML += `
-
                 </div>
-
             </div>
-
         `;
-
         
-
         grid.innerHTML += tarjetaHTML;
-
     });
-
 }
+
