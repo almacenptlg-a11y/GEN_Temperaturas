@@ -177,7 +177,7 @@ async function cargarCamaras() {
 const selCamara = document.getElementById('camara-select');
 const inFecha = document.getElementById('val-fecha');
 if(selCamara) selCamara.addEventListener('change', manejarCambioCamara);
-if(inFecha) inFecha.addEventListener('change', ves); 
+if(inFecha) inFecha.addEventListener('change', verificarTurnosDisponibles); 
 
 function manejarCambioCamara(e) {
     const camara = AppState.camaras.find(c => c.id.toString() === e.target.value.toString());
