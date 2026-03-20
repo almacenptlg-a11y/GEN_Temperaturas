@@ -106,7 +106,10 @@
     <div id="vista-registro" class="p-4 sm:p-6 md:p-8 block flex-grow">
       <form id="form-lectura-camara" class="space-y-5 sm:space-y-6 max-w-3xl mx-auto">
 
-        
+        <div id="banner-limites" class="hidden bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-sm p-3 sm:p-4 rounded-xl border border-blue-200 dark:border-blue-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-inner">
+           <span id="txt-limites-temp" class="flex items-center gap-2 font-bold"></span>
+           <span id="txt-limites-hr" class="flex items-center gap-2 font-bold"></span>
+        </div>
         
         <div id="panel-estado" class="hidden rounded-xl p-3 sm:p-4 border flex items-start gap-3 sm:gap-4 transition-colors duration-300 shadow-sm">
            <div id="icono-estado" class="mt-0.5 sm:mt-1"></div>
@@ -115,19 +118,6 @@
               <p id="desc-estado" class="text-xs sm:text-sm font-medium leading-tight"></p>
            </div>
         </div>
-
-<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6">
-    
-    <div id="banner-limites" class="hidden flex-1 rounded-xl p-3 border flex items-center justify-center gap-6 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800">
-        <span id="txt-limites-temp" class="font-bold text-sm text-blue-800 dark:text-blue-300"></span>
-        <span id="txt-limites-hr" class="font-bold text-sm text-blue-800 dark:text-blue-300"></span>
-    </div>
-
-    <button type="submit" id="btn-guardar-lectura" class="bg-gray-400 text-white font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed transition-all shadow-sm sm:w-auto w-full whitespace-nowrap" disabled>
-        <i class="ph ph-floppy-disk text-xl"></i> Registrar
-    </button>
-    
-</div>
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
           <div class="md:col-span-2">
@@ -171,7 +161,11 @@
                     class="w-full rounded-xl border-gray-300 dark:border-gray-600 shadow-sm focus:ring-red-500 focus:border-red-500 bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 py-3 px-4 border transition-colors resize-none"></textarea>
         </div>
 
-    
+        <div class="pt-2">
+          <button type="submit" id="btn-guardar-lectura" disabled class="w-full bg-gray-400 dark:bg-gray-600 text-white font-bold py-4 sm:py-5 px-4 rounded-xl transition-all flex justify-center items-center gap-2 shadow-md cursor-not-allowed text-lg hover:shadow-lg">
+            <i class="ph ph-lock-key text-2xl"></i> Esperando autorización...
+          </button>
+        </div>
 
       </form>
     </div>
