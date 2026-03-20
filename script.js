@@ -312,7 +312,7 @@ async function cargarCamaras() {
 
                 btn.classList.remove('cursor-not-allowed');
 
-                btn.innerHTML = '<i class="ph ph-floppy-disk text-2xl"></i> Registrar Lectura';
+                btn.innerHTML = '<i class="ph ph-floppy-disk text-xl"></i> Registrar';
 
                 btn.disabled = false;
 
@@ -716,7 +716,7 @@ if(formRegistro) {
 
                     btn.disabled = false; 
 
-                    btn.innerHTML = '<i class="ph ph-floppy-disk text-2xl"></i> Registrar Lectura';
+                    btn.innerHTML = '<i class="ph ph-floppy-disk text-xl"></i> Registrar';
 
                 }, 1500);
 
@@ -732,7 +732,7 @@ if(formRegistro) {
 
             btn.disabled = false; 
 
-            btn.innerHTML = '<i class="ph ph-floppy-disk text-2xl"></i> Registrar Lectura'; 
+            btn.innerHTML = '<i class="ph ph-floppy-disk text-xl"></i> Registrar';
 
         }
 
