@@ -1,19 +1,7 @@
-// =========================================================================
-
-// SCRIPT.JS - CONTROL DE TEMPERATURAS (VERSIÓN UNIFICADA FINAL)
-
-// =========================================================================
-
-
 
 const API_URL = "https://script.google.com/macros/s/AKfycbw9DjZJw8DelWMQQKvUxGhjHs1Ka0sWZPyHBu4lYwMg-2L-avGrzWNEoZOMXT8x9g3c/exec"; 
-
 const TODOS_LOS_TURNOS = ['07:30', '09:30', '11:30', '13:30', '15:30', '17:30'];
-
-
-
 // 1. ESTADO CENTRALIZADO DE LA APLICACIÓN
-
 const AppState = {
 
     user: null,
